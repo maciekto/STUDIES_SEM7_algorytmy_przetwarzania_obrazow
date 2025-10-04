@@ -1,9 +1,4 @@
-"""Small entry point that starts the PyQt application.
-
-Running `python -m app.main` will create a QApplication and show the
-MainWindow. This module is intentionally tiny — most logic is in
-app.ui.main_window.
-"""
+"""Wejście do głównej aplikacji"""
 
 import sys
 from PyQt6.QtWidgets import QApplication

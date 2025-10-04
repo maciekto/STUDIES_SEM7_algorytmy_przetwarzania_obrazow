@@ -1,34 +1,30 @@
-"""Simple image input/output helpers based on OpenCV.
+"""Funkcje ładujące pliki i zapisujące je
 
-This module exposes two small functions:
-- load(path) -> numpy.ndarray: loads an image from disk
-- save(img, path) -> None: writes a numpy array image to disk
+Ten moduł eksportuje dwie funkcje:
+- load(path) -> numpy.ndarray: wczytuje zdjęcie z dysku
+- save(img, path) -> None: zapisuje numpy tablcję zdjęcia na dysku
 
-Note: this application opens images strictly in grayscale (as requested by the
-user). The loader therefore reads images using OpenCV's IMREAD_GRAYSCALE mode
-and always returns a 2D uint8 numpy array (H x W).
+Zawsze otwiera aplikację w skali szarości. Potem czyta zdjęcia za pomocą OpenCV's IMREAD_GRAYSCALE
+i zawsze zwraca 2D uint8 numpy tablicę H x W
 """
 
 from pathlib import Path
 import cv2
 import numpy as np
 
-# Supported file extensions (used only for a friendly error message)
+
 SUPPORTED = {".bmp", ".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
 
 def load(path: str) -> np.ndarray:
-    """Load an image from `path` and return a grayscale NumPy array.
-
-    The function enforces a small set of extensions and uses OpenCV to read
-    the image in grayscale. The returned array has shape (H, W) and dtype
-    uint8.
-    """
+    """Ładowanie zdjęcia z dysku i w skali szarości do tablicy NumPy."""
     p = Path(path)
+
+    # Sprawdzenie czy rozszerzenie zdjęcia jest wspierane
     if p.suffix.lower() not in SUPPORTED:
         raise ValueError(f"Unsupported format: {p.suffix}")
-    # Always load as grayscale (single channel). This ensures the rest of the
-    # application works with a predictable array shape.
+
+    # Wczytanie img jako cv2 z ustawieniem skali szarości
     img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
     if img is None:
         raise IOError(f"Cannot read image: {path}")
@@ -36,10 +32,9 @@ def load(path: str) -> np.ndarray:
 
 
 def save(img: np.ndarray, path: str) -> None:
-    """Write the NumPy image `img` to disk at `path` using OpenCV.
-
-    `img` can be a grayscale (H x W) or color array; OpenCV will handle the
-    format based on array shape and extension.
+    """Zapisanie zdjęcia `img` na dysk używając OpenCV za pomocą ścieżki
+    `img` może być w skali szarości (H x W) albo tablicą kolorów, OpenCV
+    wspiera format w zalezności od tablicy
     """
     p = Path(path)
     ok = cv2.imwrite(str(p), img)

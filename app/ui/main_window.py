@@ -1,4 +1,4 @@
-"""Main application window and high-level UI logic.\n\nThis module defines MainWindow which orchestrates menus, toolbar, tabs and the\ninteraction between image loading/saving and the ImageView widgets.\n"""
+"""Główne okno aplikacji z główną logiką ui"""
 
 from pathlib import Path
 from typing import Optional
@@ -21,8 +21,9 @@ IMG_FILTER = "Images (*.bmp *.tif *.tiff *.png *.jpg *.jpeg)"
 
 class MainWindow(QMainWindow):
     def __init__(self):
+        """Ustawienie okna głównego (roota)"""
         super().__init__()
-        self.setWindowTitle("APOZ – Viewer (LAB1)")
+        self.setWindowTitle("APOZ - Przeglądarka")
         self.resize(1200, 800)
 
         self.tabs = QTabWidget()
@@ -32,11 +33,8 @@ class MainWindow(QMainWindow):
         self.tabs.setTabBarAutoHide(False)         # pasek kart zawsze widoczny
         self.setCentralWidget(self.tabs)
 
-        # Allow closing tabs with an "X" button. The user asked for this.
         self.tabs.setTabsClosable(True)
-        # Keep the tab bar visible even if there is a single tab.
         self.tabs.setTabBarAutoHide(False)
-        # When the user clicks the close button on a tab, handle it.
         self.tabs.tabCloseRequested.connect(self._close_tab)
         self._build_actions()
         self._build_toolbar()
@@ -44,44 +42,46 @@ class MainWindow(QMainWindow):
 
     # ---------- UI ----------
     def _build_actions(self):
-        self.actOpen = QAction("Open…", self)
+        """Zdefiniowanie wykonywanych akcji"""
+        self.actOpen = QAction("Otwórz…", self)
         self.actOpen.setShortcut(QKeySequence.StandardKey.Open)
         self.actOpen.triggered.connect(self.open_images)
 
-        self.actSaveAs = QAction("Save As…", self)
+        self.actSaveAs = QAction("Zapisz jako…", self)
         self.actSaveAs.setShortcut(QKeySequence.StandardKey.SaveAs)
         self.actSaveAs.triggered.connect(self.save_current_as)
 
         # Domyślnie Ctrl+D = side-by-side
-        self.actDuplicate = QAction("Duplicate (side-by-side)", self)
+        self.actDuplicate = QAction("Zduplikuj (obok siebie)", self)
         self.actDuplicate.setShortcut("Ctrl+D")
         self.actDuplicate.triggered.connect(self.duplicate_side_by_side)
 
         # Alternatywa: duplikat w nowej zakładce
-        self.actDuplicateNewTab = QAction("Duplicate (new tab)", self)
+        self.actDuplicateNewTab = QAction("Zduplikuj (nowa zakładka)", self)
         self.actDuplicateNewTab.setShortcut("Ctrl+Shift+D")
         self.actDuplicateNewTab.triggered.connect(self.duplicate_current)
 
-        self.actFit = QAction("Fit to window", self, checkable=True)
+        self.actFit = QAction("Dopasuj do okna", self, checkable=True)
         self.actFit.setShortcut("2")
         self.actFit.setChecked(True)
         self.actFit.triggered.connect(lambda: self._set_mode(ScaleMode.FIT))
 
-        self.actActual = QAction("Actual size (1:1)", self, checkable=True)
+        self.actActual = QAction("Oryginalny rozmiar", self, checkable=True)
         self.actActual.setShortcut("1")
         self.actActual.triggered.connect(lambda: self._set_mode(ScaleMode.ACTUAL))
 
-        self.actFill = QAction("Fill", self, checkable=True)
+        self.actFill = QAction("Wypełnij okno", self, checkable=True)
         self.actFill.setShortcut("3")
         self.actFill.triggered.connect(lambda: self._set_mode(ScaleMode.FILL))
 
-        self.actFull = QAction("Toggle Full Screen", self, checkable=False)
+        self.actFull = QAction("Zmaksymalizuj", self, checkable=False)
         self.actFull.setShortcut(QKeySequence(Qt.Key.Key_F11))
         self.actFull.triggered.connect(self._toggle_fullscreen)
 
         self.scale_group = [self.actActual, self.actFit, self.actFill]
 
     def _build_toolbar(self):
+        """Zbudowanie menu w toolbar"""
         tb = QToolBar("Main")
         self.addToolBar(tb)
         for a in (self.actOpen, self.actSaveAs, self.actDuplicate, self.actDuplicateNewTab):
@@ -91,7 +91,8 @@ class MainWindow(QMainWindow):
             tb.addAction(a)
 
     def _build_menu(self):
-        m = self.menuBar().addMenu("&File")
+        """Zbudowanie menu w oknie głównym"""
+        m = self.menuBar().addMenu("&Plik")
         m.addAction(self.actOpen)
         m.addAction(self.actSaveAs)
         m.addSeparator()
@@ -103,7 +104,7 @@ class MainWindow(QMainWindow):
         exit_act.triggered.connect(QApplication.instance().quit)
         m.addAction(exit_act)
 
-        v = self.menuBar().addMenu("&View")
+        v = self.menuBar().addMenu("&Widok")
         v.addAction(self.actActual)
         v.addAction(self.actFit)
         v.addAction(self.actFill)
