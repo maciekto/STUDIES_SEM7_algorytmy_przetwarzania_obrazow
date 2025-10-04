@@ -1,6 +1,9 @@
 from pathlib import Path
+from typing import Optional
+
 from PyQt6.QtWidgets import (
-    QMainWindow, QFileDialog, QTabWidget, QMessageBox, QToolBar, QApplication
+    QMainWindow, QFileDialog, QTabWidget, QMessageBox, QToolBar, QApplication,
+    QSplitter, QWidget
 )
 from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtCore import Qt
@@ -20,8 +23,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("APOZ – Viewer (LAB1)")
         self.resize(1200, 800)
 
-        self.tabs = QTabWidget(movable=True, tabsClosable=True)
-        self.tabs.tabCloseRequested.connect(self._close_tab)
+        self.tabs = QTabWidget()
+        self.tabs.setTabPosition(QTabWidget.TabPosition.North)
+        self.tabs.setMovable(True)
+        self.tabs.setTabsClosable(False)           # macOS: unikamy „X” bez tytułu
+        self.tabs.setTabBarAutoHide(False)         # pasek kart zawsze widoczny
         self.setCentralWidget(self.tabs)
 
         self._build_actions()
@@ -38,9 +44,15 @@ class MainWindow(QMainWindow):
         self.actSaveAs.setShortcut(QKeySequence.StandardKey.SaveAs)
         self.actSaveAs.triggered.connect(self.save_current_as)
 
-        self.actDuplicate = QAction("Duplicate", self)
+        # Domyślnie Ctrl+D = side-by-side
+        self.actDuplicate = QAction("Duplicate (side-by-side)", self)
         self.actDuplicate.setShortcut("Ctrl+D")
-        self.actDuplicate.triggered.connect(self.duplicate_current)
+        self.actDuplicate.triggered.connect(self.duplicate_side_by_side)
+
+        # Alternatywa: duplikat w nowej zakładce
+        self.actDuplicateNewTab = QAction("Duplicate (new tab)", self)
+        self.actDuplicateNewTab.setShortcut("Ctrl+Shift+D")
+        self.actDuplicateNewTab.triggered.connect(self.duplicate_current)
 
         self.actFit = QAction("Fit to window", self, checkable=True)
         self.actFit.setShortcut("2")
@@ -64,7 +76,7 @@ class MainWindow(QMainWindow):
     def _build_toolbar(self):
         tb = QToolBar("Main")
         self.addToolBar(tb)
-        for a in (self.actOpen, self.actSaveAs, self.actDuplicate):
+        for a in (self.actOpen, self.actSaveAs, self.actDuplicate, self.actDuplicateNewTab):
             tb.addAction(a)
         tb.addSeparator()
         for a in (self.actActual, self.actFit, self.actFill, self.actFull):
@@ -76,6 +88,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.actSaveAs)
         m.addSeparator()
         m.addAction(self.actDuplicate)
+        m.addAction(self.actDuplicateNewTab)
         m.addSeparator()
         exit_act = QAction("E&xit", self)
         exit_act.setShortcut(QKeySequence.StandardKey.Quit)
@@ -89,16 +102,23 @@ class MainWindow(QMainWindow):
         v.addSeparator()
         v.addAction(self.actFull)
 
-    # ---------- Actions ----------
-    def _current_view(self) -> ImageView | None:
-        w = self.tabs.currentWidget()
-        return w if isinstance(w, ImageView) else None
+    # ---------- Helpers ----------
+    def _current_container(self) -> Optional[QWidget]:
+        return self.tabs.currentWidget()
+
+    def _active_image_view(self) -> Optional[ImageView]:
+        fw = QApplication.focusWidget()
+        if isinstance(fw, ImageView):
+            return fw
+        cont = self._current_container()
+        if isinstance(cont, ImageView):
+            return cont
+        if isinstance(cont, QSplitter):
+            views = cont.findChildren(ImageView)
+            return views[0] if views else None
+        return None
 
     def _set_mode(self, mode: str):
-        v = self._current_view()
-        if not v:
-            return
-        # ekskluzywne zaznaczenie
         for a in self.scale_group:
             a.setChecked(False)
         if mode == ScaleMode.ACTUAL:
@@ -107,7 +127,13 @@ class MainWindow(QMainWindow):
             self.actFit.setChecked(True)
         else:
             self.actFill.setChecked(True)
-        v.set_mode(mode)
+
+        cont = self._current_container()
+        if isinstance(cont, ImageView):
+            cont.set_mode(mode)
+        elif isinstance(cont, QSplitter):
+            for v in cont.findChildren(ImageView):
+                v.set_mode(mode)
 
     def _toggle_fullscreen(self):
         if self.isFullScreen():
@@ -115,17 +141,33 @@ class MainWindow(QMainWindow):
         else:
             self.showFullScreen()
 
-    def _close_tab(self, idx: int):
-        w = self.tabs.widget(idx)
-        self.tabs.removeTab(idx)
-        if w:
-            w.deleteLater()
+    def _ensure_splitter_for_current_tab(self) -> Optional[QSplitter]:
+        """
+        Jeśli aktywna zakładka ma pojedynczy ImageView, zamień ją na QSplitter (Horizontal)
+        i włóż ten widok do splittera. Jeśli już jest splitter – zwróć go.
+        """
+        idx = self.tabs.currentIndex()
+        if idx < 0:
+            return None
+        cont = self.tabs.widget(idx)
+        if isinstance(cont, QSplitter):
+            return cont
+        if isinstance(cont, ImageView):
+            splitter = QSplitter(Qt.Orientation.Horizontal, self)
+            splitter.setChildrenCollapsible(False)
+            cont.setParent(None)
+            splitter.addWidget(cont)
+            splitter.setStretchFactor(0, 1)
+            title = self.tabs.tabText(idx)
+            self.tabs.removeTab(idx)
+            self.tabs.insertTab(idx, splitter, title if title else "image")
+            self.tabs.setCurrentIndex(idx)
+            return splitter
+        return None
 
     # ---------- File ops ----------
     def open_images(self):
-        paths, _ = QFileDialog.getOpenFileNames(
-            self, "Open image(s)", "", IMG_FILTER
-        )
+        paths, _ = QFileDialog.getOpenFileNames(self, "Open image(s)", "", IMG_FILTER)
         if not paths:
             return
         for path in paths:
@@ -137,38 +179,76 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Open error", str(e))
             return
+
         doc = ImageDoc(array=cv_img, path=path)
         view = ImageView(doc)
         view.set_mode(ScaleMode.FIT)
         view.set_pixmap(cv_to_qpixmap(cv_img))
-        self.tabs.addTab(view, doc.title)
-        self.tabs.setCurrentWidget(view)
+
+        # W każdej karcie od razu trzymajmy splitter (1 panel startowy) – to stabilniejsze na macOS
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(view)
+        splitter.setStretchFactor(0, 1)
+
+        title = path.name if path else "untitled"
+        self.tabs.addTab(splitter, title)
+        self.tabs.setCurrentWidget(splitter)
 
     def save_current_as(self):
-        v = self._current_view()
+        # zapisuje aktywny ImageView (fokus/1. panel w karcie)
+        v = self._active_image_view()
         if not v:
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Save image as…", "",
-                                              IMG_FILTER)
+        path, _ = QFileDialog.getSaveFileName(self, "Save image as…", "", IMG_FILTER)
         if not path:
             return
         try:
             save(v.doc.array, path)
             v.doc.path = Path(path)
             i = self.tabs.currentIndex()
-            self.tabs.setTabText(i, v.doc.title)
+            self.tabs.setTabText(i, v.doc.path.name if v.doc.path else "untitled")
         except Exception as e:
             QMessageBox.critical(self, "Save error", str(e))
 
+    # ---------- Duplicate ----------
     def duplicate_current(self):
-        v = self._current_view()
+        """Kopia w nowej zakładce."""
+        v = self._active_image_view()
         if not v or v.doc is None:
             return
-        # kopiujemy macierz (nie-referencyjnie)
         import numpy as np
         new_doc = ImageDoc(array=np.copy(v.doc.array), path=None)
         dup = ImageView(new_doc)
-        dup.set_mode(self.actFit.isChecked() and ScaleMode.FIT or ScaleMode.ACTUAL)
-        dup.set_pixmap(v.pixmap())  # kopia QPixmap wystarczy do podglądu
-        self.tabs.addTab(dup, f"{v.doc.title} (copy)")
-        self.tabs.setCurrentWidget(dup)
+        dup.set_mode(v._mode)
+        if v.pixmap():
+            dup.set_pixmap(v.pixmap().copy())
+
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(dup)
+        splitter.setStretchFactor(0, 1)
+
+        title_src = v.doc.path.name if v.doc.path else "untitled"
+        self.tabs.addTab(splitter, f"{title_src} (copy)")
+        self.tabs.setCurrentWidget(splitter)
+
+    def duplicate_side_by_side(self):
+        """Kopia obok w tej samej zakładce (QSplitter poziomy)."""
+        v = self._active_image_view()
+        if not v or v.doc is None:
+            return
+        import numpy as np
+        new_doc = ImageDoc(array=np.copy(v.doc.array), path=None)
+        dup = ImageView(new_doc)
+        dup.set_mode(v._mode)
+        if v.pixmap():
+            dup.set_pixmap(v.pixmap().copy())
+
+        splitter = self._ensure_splitter_for_current_tab()
+        if splitter is None:
+            return
+        splitter.addWidget(dup)
+        last_index = splitter.count() - 1
+        splitter.setStretchFactor(last_index, 1)
+        splitter.setSizes([1] * splitter.count())
