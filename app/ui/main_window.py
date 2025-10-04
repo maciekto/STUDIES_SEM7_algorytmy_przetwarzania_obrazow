@@ -1,3 +1,5 @@
+"""Main application window and high-level UI logic.\n\nThis module defines MainWindow which orchestrates menus, toolbar, tabs and the\ninteraction between image loading/saving and the ImageView widgets.\n"""
+
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +32,12 @@ class MainWindow(QMainWindow):
         self.tabs.setTabBarAutoHide(False)         # pasek kart zawsze widoczny
         self.setCentralWidget(self.tabs)
 
+        # Allow closing tabs with an "X" button. The user asked for this.
+        self.tabs.setTabsClosable(True)
+        # Keep the tab bar visible even if there is a single tab.
+        self.tabs.setTabBarAutoHide(False)
+        # When the user clicks the close button on a tab, handle it.
+        self.tabs.tabCloseRequested.connect(self._close_tab)
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
@@ -164,6 +172,17 @@ class MainWindow(QMainWindow):
             self.tabs.setCurrentIndex(idx)
             return splitter
         return None
+
+    def _close_tab(self, index: int) -> None:
+        """Close and clean up the tab at `index`.
+        """
+        if index < 0 or index >= self.tabs.count():
+            return
+        widget = self.tabs.widget(index)
+        # Remove the tab first, then schedule the widget for deletion.
+        self.tabs.removeTab(index)
+        if widget is not None:
+            widget.deleteLater()
 
     # ---------- File ops ----------
     def open_images(self):
