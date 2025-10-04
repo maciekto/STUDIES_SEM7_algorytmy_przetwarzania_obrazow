@@ -11,7 +11,7 @@ def load(path: str) -> np.ndarray:
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise IOError(f"Cannot read image: {path}")
-    return img  # BGR or BGRA or grayscale
+    return img  # BGR / BGRA / grayscale
 
 def save(img: np.ndarray, path: str) -> None:
     p = Path(path)
