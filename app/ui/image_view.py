@@ -7,11 +7,12 @@ according to the selected ScaleMode. It supports:
 - FILL: scale to widget ignoring aspect ratio
 """
 
-from PyQt6.QtWidgets import QLabel, QSizePolicy
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QLabel, QSizePolicy, QMenu
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 from app.model.image_store import ImageDoc
 from typing import Optional
+import numpy as np
 
 
 class ScaleMode:
@@ -21,6 +22,8 @@ class ScaleMode:
 
 
 class ImageView(QLabel):
+    clicked = pyqtSignal()
+    closeRequested = pyqtSignal()
     def __init__(self, doc: ImageDoc):
         super().__init__()
         # Make the widget stretchable inside layouts/splitters
@@ -33,6 +36,9 @@ class ImageView(QLabel):
         self._doc = doc
         self._mode = ScaleMode.FIT
         self._zoom = 1.0
+        # undo/redo stacks store numpy arrays (copies)
+        self._undo_stack: list[np.ndarray] = []
+        self._redo_stack: list[np.ndarray] = []
 
     @property
     def doc(self) -> ImageDoc:
@@ -54,6 +60,63 @@ class ImageView(QLabel):
             step = 1.1 if e.angleDelta().y() > 0 else 1 / 1.1
             self._zoom = max(0.1, min(8.0, self._zoom * step))
             self.update_view()
+
+    def mousePressEvent(self, e):
+        # give focus to this view and emit clicked so MainWindow can track
+        # which image is active when multiple views are open side-by-side.
+        self.setFocus()
+        self.clicked.emit()
+        super().mousePressEvent(e)
+
+    def contextMenuEvent(self, e):
+        menu = QMenu(self)
+        act_close = menu.addAction("Zamknij widok")
+        act = menu.exec(e.globalPos())
+        if act == act_close:
+            self.closeRequested.emit()
+
+    # ---------- undo/redo support ----------
+    def push_undo(self):
+        # push a copy of current array to undo stack and clear redo stack
+        self._undo_stack.append(np.copy(self._doc.array))
+        # limit stack to reasonable size
+        if len(self._undo_stack) > 50:
+            self._undo_stack.pop(0)
+        self._redo_stack.clear()
+
+    def undo(self) -> bool:
+        if not self._undo_stack:
+            return False
+        prev = self._undo_stack.pop()
+        # push current to redo
+        self._redo_stack.append(np.copy(self._doc.array))
+        self._doc.array = prev
+        # update pixmap
+        if self._pix:
+            # regenerate pixmap from array
+            from app.utils.cv_qt_convert import cv_to_qpixmap
+
+            self.set_pixmap(cv_to_qpixmap(self._doc.array))
+        else:
+            self.update_view()
+        return True
+
+    def redo(self) -> bool:
+        if not self._redo_stack:
+            return False
+        nxt = self._redo_stack.pop()
+        self._undo_stack.append(np.copy(self._doc.array))
+        self._doc.array = nxt
+        from app.utils.cv_qt_convert import cv_to_qpixmap
+
+        self.set_pixmap(cv_to_qpixmap(self._doc.array))
+        return True
+
+    def can_undo(self) -> bool:
+        return bool(self._undo_stack)
+
+    def can_redo(self) -> bool:
+        return bool(self._redo_stack)
 
     def resizeEvent(self, _):
         # In FIT/FILL modes we need to recalc the drawn pixmap on resize

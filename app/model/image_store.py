@@ -1,27 +1,27 @@
-"""Small container for an opened image.
+"""Kontener dla otwartego obrazu
 
-ImageDoc holds the NumPy array (pixel data) and an optional pathlib.Path
-pointing to the file on disk. If path is None the document is considered
-unsaved/untitled.
+Klasa ImageDoc trzyma tablicę NumPy i opcjonalną ścieżkę pliku na dysku.
+Jeżeli ścieżka jest pusta zdjęcie ma status niezapisanego/bez nazwy.
 """
 
-from dataclasses import dataclass
+# from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
 
-@dataclass
+# @dataclass
 class ImageDoc:
-    """A light-weight container for image data and its source path.
+    """Lekki kontener dla obrazu w formacie NumPy
 
-    Fields:
-    - array: NumPy ndarray with image pixels
-    - path: pathlib.Path or None when the image was not loaded from disk
+    Pola:
+    - array: NumPy ndarray z pixelami obrazu
+    - path: pathlib.Path lub None kiedy obraz nie został wczytany z dysku
     """
-    array: np.ndarray
-    path: Path | None  # None = not saved / untitled
+    def __init__(self, array: np.ndarray, path: Path | None):
+        self.array = array
+        self.path = path
 
     @property
     def title(self) -> str:
-        """Return a human-friendly title for UI (filename or 'untitled')."""
+        """Zwraca user friendly nazwę (nazwa pliku albo 'untitled')."""
         return self.path.name if self.path else "untitled"

@@ -14,6 +14,10 @@ from app.ui.image_view import ImageView, ScaleMode
 from app.io.image_io import load, save
 from app.utils.cv_qt_convert import cv_to_qpixmap
 from app.model.image_store import ImageDoc
+from app.ui.hist_canvas import render_histogram
+from app.controller import actions, validators
+from app.model import point_ops
+from PyQt6.QtWidgets import QInputDialog
 
 
 IMG_FILTER = "Images (*.bmp *.tif *.tiff *.png *.jpg *.jpeg)"
@@ -39,6 +43,8 @@ class MainWindow(QMainWindow):
         self._build_actions()
         self._build_toolbar()
         self._build_menu()
+        # track last clicked ImageView to apply operations when multiple are open
+        self._last_active_view = None
 
     # ---------- UI ----------
     def _build_actions(self):
@@ -79,6 +85,14 @@ class MainWindow(QMainWindow):
         self.actFull.triggered.connect(self._toggle_fullscreen)
 
         self.scale_group = [self.actActual, self.actFit, self.actFill]
+        # Undo / Redo
+        self.actUndo = QAction("Cofnij", self)
+        self.actUndo.setShortcut("Ctrl+Z")
+        self.actUndo.triggered.connect(self._undo)
+
+        self.actRedo = QAction("Ponów", self)
+        self.actRedo.setShortcut("Ctrl+Y")
+        self.actRedo.triggered.connect(self._redo)
 
     def _build_toolbar(self):
         """Zbudowanie menu w toolbar"""
@@ -89,6 +103,9 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         for a in (self.actActual, self.actFit, self.actFill, self.actFull):
             tb.addAction(a)
+        tb.addSeparator()
+        tb.addAction(self.actUndo)
+        tb.addAction(self.actRedo)
 
     def _build_menu(self):
         """Zbudowanie menu w oknie głównym"""
@@ -111,21 +128,41 @@ class MainWindow(QMainWindow):
         v.addSeparator()
         v.addAction(self.actFull)
 
+        a = self.menuBar().addMenu("&Analiza")
+        self.actHist = QAction("Pokaż histogram", self)
+        self.actHist.triggered.connect(self.show_histogram)
+        a.addAction(self.actHist)
+
+        t = self.menuBar().addMenu("&Transformacje")
+        self.actStretchNoClip = QAction("Rozciąganie liniowe (bez przesycenia)", self)
+        self.actStretchNoClip.triggered.connect(lambda: self._do_stretch(None))
+        t.addAction(self.actStretchNoClip)
+        self.actStretchClip5 = QAction("Rozciąganie liniowe (clip 5%)", self)
+        self.actStretchClip5.triggered.connect(lambda: self._do_stretch(0.05))
+        t.addAction(self.actStretchClip5)
+        self.actEqualizeSel = QAction("Equalizacja selektywna", self)
+        self.actEqualizeSel.triggered.connect(self._do_equalize_selective)
+        t.addAction(self.actEqualizeSel)
+
+        p = self.menuBar().addMenu("&Operacje punktowe")
+        self.actNegation = QAction("Negacja", self)
+        self.actNegation.triggered.connect(self._do_negation)
+        p.addAction(self.actNegation)
+        self.actRequant = QAction("Kwantyzacja (redukcja poziomów)", self)
+        self.actRequant.triggered.connect(self._do_requant)
+        p.addAction(self.actRequant)
+        self.actThreshBin = QAction("Progowanie binarne", self)
+        self.actThreshBin.triggered.connect(self._do_threshold_binary)
+        p.addAction(self.actThreshBin)
+        self.actThreshKeep = QAction("Progowanie (z zachowaniem poziomów)", self)
+        self.actThreshKeep.triggered.connect(self._do_threshold_keep)
+        p.addAction(self.actThreshKeep)
+
     # ---------- Helpers ----------
     def _current_container(self) -> Optional[QWidget]:
         return self.tabs.currentWidget()
 
-    def _active_image_view(self) -> Optional[ImageView]:
-        fw = QApplication.focusWidget()
-        if isinstance(fw, ImageView):
-            return fw
-        cont = self._current_container()
-        if isinstance(cont, ImageView):
-            return cont
-        if isinstance(cont, QSplitter):
-            views = cont.findChildren(ImageView)
-            return views[0] if views else None
-        return None
+    
 
     def _set_mode(self, mode: str):
         for a in self.scale_group:
@@ -174,6 +211,33 @@ class MainWindow(QMainWindow):
             return splitter
         return None
 
+    def _set_last_active(self, view):
+        self._last_active_view = view
+
+    def _active_image_view(self) -> Optional[ImageView]:
+        # prefer last active if it still exists in current tab
+        if self._last_active_view is not None:
+            # ensure it is still a child of current tab
+            idx = self.tabs.currentIndex()
+            if idx >= 0:
+                cont = self.tabs.widget(idx)
+                if isinstance(cont, QSplitter):
+                    if self._last_active_view in cont.findChildren(ImageView):
+                        return self._last_active_view
+                elif isinstance(cont, ImageView):
+                    return cont
+        # fallback: find focused ImageView
+        fw = QApplication.focusWidget()
+        if isinstance(fw, ImageView):
+            return fw
+        cont = self._current_container()
+        if isinstance(cont, ImageView):
+            return cont
+        if isinstance(cont, QSplitter):
+            views = cont.findChildren(ImageView)
+            return views[0] if views else None
+        return None
+
     def _close_tab(self, index: int) -> None:
         """Close and clean up the tab at `index`.
         """
@@ -184,6 +248,44 @@ class MainWindow(QMainWindow):
         self.tabs.removeTab(index)
         if widget is not None:
             widget.deleteLater()
+
+    def _remove_view(self, view: ImageView) -> None:
+        """Remove a single ImageView from whichever tab/splitter contains it.
+
+        If the view is the only widget in its tab, the tab is closed. If the view
+        is inside a splitter and after removal only one child remains, the
+        splitter is replaced by that remaining widget to simplify the layout.
+        """
+        # find tab index that contains this view
+        for i in range(self.tabs.count()):
+            cont = self.tabs.widget(i)
+            # direct widget
+            if cont is view:
+                self.tabs.removeTab(i)
+                view.deleteLater()
+                return
+            # splitter container
+            if isinstance(cont, QSplitter):
+                children = cont.findChildren(ImageView)
+                if view in children:
+                    # remove the widget from splitter
+                    view.setParent(None)
+                    view.deleteLater()
+                    # if splitter now has 0 children remove tab
+                    remaining = [w for w in cont.findChildren(ImageView)]
+                    if len(remaining) == 0:
+                        self.tabs.removeTab(i)
+                        cont.deleteLater()
+                    elif len(remaining) == 1:
+                        # replace splitter with the remaining widget
+                        rem = remaining[0]
+                        title = self.tabs.tabText(i)
+                        # take rem out of splitter
+                        rem.setParent(None)
+                        self.tabs.removeTab(i)
+                        self.tabs.insertTab(i, rem, title)
+                        self.tabs.setCurrentIndex(i)
+                    return
 
     # ---------- File ops ----------
     def open_images(self):
@@ -202,6 +304,8 @@ class MainWindow(QMainWindow):
 
         doc = ImageDoc(array=cv_img, path=path)
         view = ImageView(doc)
+        view.clicked.connect(lambda v=view: self._set_last_active(v))
+        view.closeRequested.connect(lambda v=view: self._remove_view(v))
         view.set_mode(ScaleMode.FIT)
         view.set_pixmap(cv_to_qpixmap(cv_img))
 
@@ -240,6 +344,8 @@ class MainWindow(QMainWindow):
         import numpy as np
         new_doc = ImageDoc(array=np.copy(v.doc.array), path=None)
         dup = ImageView(new_doc)
+        dup.clicked.connect(lambda v=dup: self._set_last_active(v))
+        dup.closeRequested.connect(lambda v=dup: self._remove_view(v))
         dup.set_mode(v._mode)
         if v.pixmap():
             dup.set_pixmap(v.pixmap().copy())
@@ -261,6 +367,8 @@ class MainWindow(QMainWindow):
         import numpy as np
         new_doc = ImageDoc(array=np.copy(v.doc.array), path=None)
         dup = ImageView(new_doc)
+        dup.clicked.connect(lambda v=dup: self._set_last_active(v))
+        dup.closeRequested.connect(lambda v=dup: self._remove_view(v))
         dup.set_mode(v._mode)
         if v.pixmap():
             dup.set_pixmap(v.pixmap().copy())
@@ -272,3 +380,163 @@ class MainWindow(QMainWindow):
         last_index = splitter.count() - 1
         splitter.setStretchFactor(last_index, 1)
         splitter.setSizes([1] * splitter.count())
+
+    # ---------- undo/redo handling ----------
+    def _undo(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        ok = v.undo()
+        if not ok:
+            QMessageBox.information(self, "Cofnij", "Brak operacji do cofnięcia")
+
+    def _redo(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        ok = v.redo()
+        if not ok:
+            QMessageBox.information(self, "Ponów", "Brak operacji do ponowienia")
+
+    # ---------- Analysis / transform helpers ----------
+    def _add_result_tab(self, doc: ImageDoc, title_suffix: str):
+        from PyQt6.QtWidgets import QSplitter
+
+        view = ImageView(doc)
+        view.clicked.connect(lambda v=view: self._set_last_active(v))
+        view.closeRequested.connect(lambda v=view: self._remove_view(v))
+        view.set_mode(ScaleMode.FIT)
+        view.set_pixmap(cv_to_qpixmap(doc.array))
+
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(view)
+        splitter.setStretchFactor(0, 1)
+
+        title = (doc.path.name if doc.path else "result")
+        self.tabs.addTab(splitter, f"{title} {title_suffix}")
+        self.tabs.setCurrentWidget(splitter)
+
+    def show_histogram(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        # open histogram tool window (non-modal) which will allow choosing channel
+        from app.ui.hist_window import HistWindow
+
+        try:
+            win = HistWindow(self, v.doc)
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+            return
+        # keep reference to avoid garbage collection
+        if not hasattr(self, '_aux_windows'):
+            self._aux_windows = []
+        self._aux_windows.append(win)
+        # ensure it is removed when closed
+        win.destroyed.connect(lambda _=None, w=win: self._aux_windows.remove(w) if w in getattr(self, '_aux_windows', []) else None)
+        win.show()
+
+    def _do_stretch(self, clip_frac: float | None):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            # apply in-place to selected view: push undo, clear redo
+            v.push_undo()
+            res = actions.stretch_linear(v.doc, clip_frac=clip_frac)
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+            return
+        # update view with new data
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))
+
+    def _do_equalize_selective(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            v.push_undo()
+            res = actions.equalize_selective(v.doc)
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+            return
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))
+
+    # ---------- point ops ----------
+    def _do_negation(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            validators.ensure_grayscale(v.doc.array)
+        except Exception as e:
+            QMessageBox.warning(self, "Walidacja", str(e))
+            return
+        v.push_undo()
+        lut = point_ops.negation_lut()
+        res = actions.apply_point_lut(v.doc, lut)
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))
+
+    def _do_requant(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            validators.ensure_grayscale(v.doc.array)
+        except Exception as e:
+            QMessageBox.warning(self, "Walidacja", str(e))
+            return
+        levels, ok = QInputDialog.getInt(self, "Kwantyzacja", "Liczba poziomów:", 4, 2, 256)
+        if not ok:
+            return
+        v.push_undo()
+        lut = point_ops.requantization_lut(256, levels)
+        res = actions.apply_point_lut(v.doc, lut)
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))
+
+    def _do_threshold_binary(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            validators.ensure_grayscale(v.doc.array)
+        except Exception as e:
+            QMessageBox.warning(self, "Walidacja", str(e))
+            return
+        thr, ok = QInputDialog.getInt(self, "Progowanie binarne", "Próg (0-255):", 128, 0, 255)
+        if not ok:
+            return
+        v.push_undo()
+        lut = point_ops.threshold_binary_lut(thr)
+        res = actions.apply_point_lut(v.doc, lut)
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))
+
+    def _do_threshold_keep(self):
+        v = self._active_image_view()
+        if not v:
+            return
+        try:
+            validators.ensure_grayscale(v.doc.array)
+        except Exception as e:
+            QMessageBox.warning(self, "Walidacja", str(e))
+            return
+        thr, ok = QInputDialog.getInt(self, "Progowanie", "Próg (0-255):", 128, 0, 255)
+        if not ok:
+            return
+        low, ok2 = QInputDialog.getInt(self, "Poziom niski", "Wartość poniżej progu (0-255):", 0, 0, 255)
+        if not ok2:
+            return
+        high, ok3 = QInputDialog.getInt(self, "Poziom wysoki", "Wartość powyżej progu (0-255):", 255, 0, 255)
+        if not ok3:
+            return
+        v.push_undo()
+        lut = point_ops.threshold_keep_levels_lut(thr, low, high)
+        res = actions.apply_point_lut(v.doc, lut)
+        v.doc.array = res.array
+        v.set_pixmap(cv_to_qpixmap(v.doc.array))

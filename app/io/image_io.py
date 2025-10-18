@@ -1,11 +1,14 @@
-"""Funkcje ładujące pliki i zapisujące je
+"""Funkcje ładujące pliki i zapisujące je.
 
 Ten moduł eksportuje dwie funkcje:
 - load(path) -> numpy.ndarray: wczytuje zdjęcie z dysku
-- save(img, path) -> None: zapisuje numpy tablcję zdjęcia na dysku
+- save(img, path) -> None: zapisuje numpy tablicę zdjęcia na dysku
 
-Zawsze otwiera aplikację w skali szarości. Potem czyta zdjęcia za pomocą OpenCV's IMREAD_GRAYSCALE
-i zawsze zwraca 2D uint8 numpy tablicę H x W
+Uwaga: wcześniej aplikacja zawsze wczytywała obrazy jako skala szarości.
+W tej wersji wspieramy wczytywanie kolorowych obrazów. Funkcja load używa
+OpenCV z flagą IMREAD_UNCHANGED aby zachować liczbę kanałów zgodnie z
+plikiem na dysku: 1 (grayscale), 3 (BGR) lub 4 (BGRA). Zwracana tablica
+to NumPy ndarray dtype uint8.
 """
 
 from pathlib import Path
@@ -24,8 +27,10 @@ def load(path: str) -> np.ndarray:
     if p.suffix.lower() not in SUPPORTED:
         raise ValueError(f"Unsupported format: {p.suffix}")
 
-    # Wczytanie img jako cv2 z ustawieniem skali szarości
-    img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+    # Wczytanie obrazu bez konwersji kanałów — zachowujemy oryginalną
+    # liczbę kanałów (mono, BGR lub BGRA). To pozwala obsługiwać obrazy
+    # kolorowe i rysować histogramy per-kanał.
+    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise IOError(f"Cannot read image: {path}")
     return img
