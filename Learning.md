@@ -16,3 +16,7 @@ print(a[0])
 >> 2
 
 ```
+
+
+## 1. Jeżeli QPixmap jest zwracane z convert_cv_to_pixmap to nie mam potem dostępu do QImage z którego ta pixmap-a powstałą prawda?
+## 2. Kiedy odznaczyłem tą linijką obraz nie zniknął self.open_windows.append(image_window) o co chodzi?
