@@ -47,3 +47,5 @@ def convert_cv_to_pixmap(cv_img):
 
     # Konwertuję na QPixmap, aby to wyświetlić w PyQt widget-cie i zwracam z funkcji
     return QPixmap.fromImage(q_img)
+
+

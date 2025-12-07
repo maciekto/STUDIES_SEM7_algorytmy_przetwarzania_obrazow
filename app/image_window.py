@@ -1,61 +1,198 @@
 # image_window.py
-from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QMenu
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QResizeEvent
+from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QMenu, QFileDialog, QSizePolicy
+from PyQt6.QtCore import Qt, QSize
 import cv2
 from utils import convert_cv_to_pixmap
-
+from algorithms import generate_lut_histogram
 
 # Tu będziesz importować swoje algorytmy z algorithms.py
 
 class ImageWindow(QMainWindow):
-    def __init__(self, cv_image, title="Obraz"):
+    def __init__(self, cv_image, title="Obraz", main_app_window=None):
         super().__init__()
         self.setWindowTitle(title)
+        self.main_app_window = main_app_window  # Referencja do okna głównego zawierającego listę otwartych okien
+        self._child_windows = []    # Tablica przechowująca okna wynikowe operacji lub wykresy
 
-        # Przechowujemy oryginał w formacie OpenCV (tablica NumPy)
-        self.cv_image = cv_image
+        self.cv_image = cv_image    # Przechowuje oryginał w formacie OpenCV (tablica NumPy)
+        self.pixmap = convert_cv_to_pixmap(cv_image) # Przechowuje pixmap-ę
+        self.view_mode = "aspect_fit"  # Ustawiam aktualny tryb aspect_fit/fit/original
 
         # Ustawienie GUI do wyświetlania
-        self.scroll_area = QScrollArea()                            # Ustawienie scroll-u, gdy zmniejszę okno
-        self.label_image = QLabel()                                 # Bez tego nie będzie gdzie wyświetlić Pixmap-y
-        self.label_image.setAlignment(Qt.AlignmentFlag.AlignCenter) # Ustawia wyrównanie obrazu w QLabel na środek
-        self.scroll_area.setWidget(self.label_image)                # Osadza QLabel w obszarze przewijania scroll_area
-        self.scroll_area.setWidgetResizable(True)                   # Włącza zmianę wielkości okna
-        self.setCentralWidget(self.scroll_area)                     # Ustawia QScrollArea jako jedyny, wypełniający
-                                                                    # element QMainWindow
+        self.scroll_area = QScrollArea()  # Ustawienie scroll-u, gdy zmniejszę okno
+        self.label_image = QLabel()  # Bez tego nie będzie gdzie wyświetlić Pixmap-y
+        self.label_image.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Ustawia wyrównanie obrazu w QLabel na środek
+        self.scroll_area.setWidget(self.label_image)  # Osadza QLabel w obszarze przewijania scroll_area
+        self.scroll_area.setWidgetResizable(True)  # Włącza zmianę wielkości okna
+        self.setCentralWidget(self.scroll_area)  # Ustawia QScrollArea jako jedyny, wypełniający
 
-        # Wyświetlenie obrazu
-        self.show_image()
+        self.show_image()       # Wyświetlenie obrazu
 
-        # Menu okna ze zdjęciem
-        self.create_menus()
+        self.create_menus()     # Menu okna ze zdjęciem
 
     def show_image(self):
         """Odświeża widok w oknie na podstawie self.cv_image"""
-        pixmap = convert_cv_to_pixmap(self.cv_image)
-        if pixmap:
+        if self.pixmap:
             # Ustawienie pixmap-y jako zawartości obiektu QLabel
-            self.label_image.setPixmap(pixmap)
+            self.label_image.setPixmap(self.pixmap)
 
             # Dopasowanie rozmiaru okna do zdjęcia z marginesami 20 px, maksymalna wielkość okna to 800x600px
-            self.resize(min(pixmap.width() + 20, 800), min(pixmap.height() + 20, 600))
+            self.resize(min(self.pixmap.width() + 20, 800), min(self.pixmap.height() + 20, 600))
 
     def create_menus(self):
         menu_bar = self.menuBar()
+
+        file = menu_bar.addMenu("File")  # Zakłada dla zapisania/wczytania/duplikacji obrazu
+        file_open = file.addAction("Otwórz")
+        file_open.triggered.connect(self.on_file_open_triggered)
+
+        file_duplicate = file.addAction("Duplikuj")
+        file_duplicate.triggered.connect(self.on_file_duplicate_triggered)
+
+        file_save = file.addAction("Zapisz jako")
+        file_save.triggered.connect(self.on_file_save_triggered)
+
+        view = menu_bar.addMenu("View")  # Zakładka dla operacji widoku: dopasowanie do okna, wypełniony, oryginał
+
+        view_aspect_fit = view.addAction("Wypełnienie z zachowaniem proporcji")
+        view_aspect_fit.triggered.connect(self.on_view_aspect_fit_triggered)
+
+        view_fit = view.addAction("Dopasowanie do okna")
+        view_fit.triggered.connect(self.on_view_fit_triggered)
+
+        view_original = view.addAction("Oryginalny")
+        view_original.triggered.connect(self.on_view_original_triggered)
 
         # Menu dla lab-ów 1
         lab1_menu = menu_bar.addMenu("Lab 1")
 
         # Przykład: Wywołanie histogramu (Zadanie 3 z Lab 1)
         action_hist = lab1_menu.addAction("Pokaż Histogram")
-        action_hist.triggered.connect(self.show_histogram_placeholder)
+        action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
 
         # Menu dla lab-ów 2
         lab2_menu = menu_bar.addMenu("Lab 2")
         # Tu dodasz operacje arytmetyczne, logiczne itd.
 
-    def show_histogram_placeholder(self):
-        print("Tu wywołasz okno z wykresem histogramu (zrób to ręcznie, nie używaj gotowca!)")
-        # Tutaj w przyszłości:
+    # ------------------------------
+    # MENU FILE OPTIONS METHODS
+    # ------------------------------
+
+    def on_file_open_triggered(self):
+        self.main_app_window.open_image_dialog()
+    def on_file_duplicate_triggered(self):
+
+        # Bez użycia cv_image.copy() przekazana zostałaby referencja i wtedy edytując jedno zdjęcie zmiany byłyby na 2
+        duplicated_image = ImageWindow(self.cv_image.copy(), title=f'(Copy) {self.windowTitle()}')
+        duplicated_image.show()
+
+        # Dodanie okna do listy przechowywanych referencji dla garbage collector-a, żeby nie usuwał
+        self.main_app_window.open_windows.append(duplicated_image)
+
+        # Kiedy okno jest zamknięte przez użytkownika zostaje usunięte z listy
+        duplicated_image.destroyed.connect(
+            lambda: self.main_app_window.open_windows.remove(duplicated_image) if duplicated_image in self.main_app_window.open_windows else None
+        )
+
+    def on_file_save_triggered(self):
+
+        # Wywołanie okna zapisu
+        file_path, _ = QFileDialog.getSaveFileName(
+            None,  # Rodzic
+            "Zapisz obraz jako...",  # Tytuł okna
+            self.windowTitle(),  # Domyślna nazwa
+            "PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp);;TIFF (*.tif)"  # Filtry
+        )
+
+        # Sprawdzenie, czy użytkownik wybrał nazwę i miejsce zapisu
+        if file_path:
+            # Funkcja sama wybiera format z nazwy wybranej przez użytkownika
+            cv2.imwrite(file_path, self.cv_image)
+
+    # ------------------------------
+    # MENU VIEW OPTIONS METHODS
+    # ------------------------------
+    def on_view_aspect_fit_triggered(self):
+        self.view_mode = 'aspect_fit'
+        # Ustawienie wielkości minimalnej
+        self.label_image.setMinimumSize(40, 40)
+        self.scroll_area.setWidgetResizable(True)
+        self.label_image.setScaledContents(False)
+
+    def on_view_fit_triggered(self):
+        self.view_mode = 'fit'
+        # Ustawia skalowanie w QLabel
+        self.label_image.setScaledContents(True)
+        # Pozwala na resize
+        self.scroll_area.setWidgetResizable(True)
+        # Wymusza to, że QLabel będzie mogło zmniejszać rozmiar pixmap-y
+        self.label_image.setMinimumSize(1, 1)
+
+    def on_view_original_triggered(self):
+        self.view_mode = 'original'
+        # Usuwam ustawienie 1,1 z opcji fit
+        self.label_image.setMinimumSize(0, 0)
+        # Wyłączam skalowanie
+        self.label_image.setScaledContents(False)
+        # Ustawia Resize dla obiektu ze zdjęciem
+        self.scroll_area.setWidgetResizable(True)
+
+        # Zmienia rozmiar tak, aby pomieścić swoją zawartość
+        self.label_image.adjustSize()
+
+    # ------------------------------
+    # MENU VIEW HELPERS METHODS
+    # ------------------------------
+    def resizeEvent(self, event: QResizeEvent):
+        """Nadpisanie metody udostępnianej przez PyQt wywoływanej po zmianie wielkości okna"""
+
+        if self.view_mode == "aspect_fit" and self.scroll_area.widgetResizable():
+            self.view_aspect_fit_resize_event()
+
+        super().resizeEvent(event)
+
+    def view_aspect_fit_resize_event(self):
+        """Wywoływana w nadpisaniu metody resizeEvent za każdym razem,
+        gdy podczas trybu widoku = aspect_fit zmienia się wielkość okna"""
+
+        # Pobieram aktualny maksymalny obszar roboczy jako 2D obiekt QSize
+        full_view_size = self.scroll_area.viewport().size()
+
+        # Ustawiam margines od zdjęcia do końca okna
+        margin = 50  # /2
+
+        # Ustawiam rozmiar zdjęcia mniejszy o margines.
+        # UWAGA: Margines będzie 2 razy mniejszy ze względu na dwie strony i automatyczne centrowanie przez QLabel
+        width_scaled_with_margin = full_view_size.width() - margin
+        height_scaled_with_margin = full_view_size.height() - margin
+
+        # Sprawdzenie, czy obliczona szerokość i wysokość nie są mniejsze od zera
+        if width_scaled_with_margin <= 0 or height_scaled_with_margin <= 0:
+            return
+
+        # Zapisanie obliczonych rozmiarów do obiektu QSize
+        max_view_size = QSize(width_scaled_with_margin, height_scaled_with_margin)
+
+        # Obliczenie nowej pixmap-y
+        scaled_pixmap = self.pixmap.scaled(
+            max_view_size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+
+        # Ustawienie nowej pixmap-y w QLabel-u
+        self.label_image.setPixmap(scaled_pixmap)
+
+        # Automatyczne dostosowanie okna do aktualnej zawartości
+        self.label_image.adjustSize()
+
+    # ------------------------------
+    # MENU LAB1 OPTIONS METHODS
+    # ------------------------------
+    def on_action_histogram_triggered(self, image_data):
+        # Ta funkcja zostanie wywołana PRZY KLIKNIĘCIU
+        histogram_data = generate_lut_histogram(image_data)
+        print(histogram_data)
         # 1. Oblicz tablicę LUT (algorithms.calculate_histogram)
-        # 2. Otwórz nowe okno dialogowe rysujące słupki na QGraphicsView lub Matplotlib
+        # 2. nowe okno dialogowe rysujące słupki na QGraphicsView lub Matplotlib

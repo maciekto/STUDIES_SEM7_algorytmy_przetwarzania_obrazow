@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
 
         # Zwraca ścieżkę do pliku i zastosowany filtr, który ignorujemy wg. konwencji _
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz obraz", "", "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
+            None, "Wybierz obraz", "", "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff)"
         )
 
         if file_path:
@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
 
             if cv_img is not None:
                 # Tworzymy nowe, niezależne okno dla tego zdjęcia
-                image_window = ImageWindow(cv_img, title=file_path)
+                image_window = ImageWindow(cv_img, title=file_path, main_app_window=self)
                 image_window.show()
 
                 # Zapamiętujemy okno, żeby nie zniknęło
