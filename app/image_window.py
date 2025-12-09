@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, QSize
 import cv2
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram
+from single_lut_dialog import SingleLutDialog
 
 # Tu będziesz importować swoje algorytmy z algorithms.py
 
@@ -193,6 +194,14 @@ class ImageWindow(QMainWindow):
     def on_action_histogram_triggered(self, image_data):
         # Ta funkcja zostanie wywołana PRZY KLIKNIĘCIU
         histogram_data = generate_lut_histogram(image_data)
-        print(histogram_data)
+        lut_dialog = None
+        if image_data.shape == 1:
+            lut_dialog = SingleLutDialog(histogram_data, 'Jasność', 'Ilość pixel-i danej jasności', self)
+
+        else:
+            print("Lut dialog dla wielu tablic lut")
+            # lut_dialog =
+        if lut_dialog:
+            lut_dialog.show()
         # 1. Oblicz tablicę LUT (algorithms.calculate_histogram)
         # 2. nowe okno dialogowe rysujące słupki na QGraphicsView lub Matplotlib

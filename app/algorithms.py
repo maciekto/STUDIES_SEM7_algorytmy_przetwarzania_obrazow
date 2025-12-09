@@ -5,7 +5,6 @@ def generate_lut_histogram(image_data: np.ndarray = None) -> None | np.ndarray |
 
     if image_data is None:
         return None
-
     if len(image_data.shape) == 1:
         mono_lut = np.zeros(256, dtype=np.uint32)
 
