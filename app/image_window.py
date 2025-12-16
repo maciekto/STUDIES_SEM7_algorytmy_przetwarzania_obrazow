@@ -3,7 +3,6 @@ import numpy as np
 from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtCore import pyqtSignal
 import cv2
 
 from HistogramPlotDialog import HistogramPlotDialog

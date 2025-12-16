@@ -48,7 +48,6 @@ class SingleLutDialog(QDialog):
             item_index.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.table_widget.setItem(i, 0, item_index)
 
-
             value = int(self.lut_data[i])
             item_value = QTableWidgetItem(str(value))
             self.table_widget.setItem(i, 1, item_value)

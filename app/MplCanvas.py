@@ -16,7 +16,7 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
 
-        fig = matplotlib.figure.Figure(figsize=(width, height), dpi=dpi) # Utworzenie canvas-u matplotlib
+        fig = matplotlib.figure.Figure(figsize=(width, height), dpi=dpi)  # Utworzenie canvas-u matplotlib
 
         # Tworzy obszar rysowania: 1 wiersz, 1 kolumna, pierwsza pozycja?
         self.axes = fig.add_subplot(111)

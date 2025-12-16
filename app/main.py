@@ -1,6 +1,5 @@
 # main.py
 import sys
-import cv2
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget
 from image_window import ImageWindow
 from utils import smart_image_read

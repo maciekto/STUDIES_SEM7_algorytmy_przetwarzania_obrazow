@@ -21,6 +21,7 @@ MultipleLutDataType = Dict[
     ]
 ]
 
+
 class MultiLutDialog(QDialog):
     def __init__(self, lut_data_dict: MultipleLutDataType, parent=None):
         super().__init__(parent)
@@ -41,10 +42,9 @@ class MultiLutDialog(QDialog):
             index_label = package.get("index_label", "Indeks")
             value_label = package.get("value_label", "Value")
 
-            # Sprawdzam czy tablica nie jest pusta i czy zmienna przechowuje tablicę
+            # Sprawdzam, czy tablica nie jest pusta i czy zmienna przechowuje tablicę
             if data_array is not None and isinstance(data_array, np.ndarray):
                 self.add_lut_column(title, data_array, str(index_label), str(value_label))
-
 
     def add_lut_column(self, title: str, data_array: np.ndarray, index_label: str, value_label: str):
         """Tworzy kolumnę z tabelą"""

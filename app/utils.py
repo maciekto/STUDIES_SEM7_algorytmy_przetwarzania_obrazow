@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from PyQt6.QtGui import QImage, QPixmap
 
+
 def smart_image_read(file_path):
     """
     Wczytuje obraz i automatycznie decyduje, czy zwrócić go jako obraz kolorowy (BGR) czy szaroodcieniowy (Grayscale)
@@ -19,6 +20,8 @@ def smart_image_read(file_path):
             return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     return img
+
+
 def convert_cv_to_pixmap(cv_img):
     """
     Konwertuje obraz z formatu OpenCV (BGR/Grayscale) na QPixmap dla PyQt6 (RGB).
@@ -40,11 +43,11 @@ def convert_cv_to_pixmap(cv_img):
 
         # Utworzenie obiektu PyQt image
         q_img = QImage(
-            rgb_img_for_pyqt6.data,     # dane pixel-i, czyli bezpośrednio tablicę NumPy zawierającą ciąg kolorów
+            rgb_img_for_pyqt6.data,      # dane pixel-i, czyli bezpośrednio tablicę NumPy zawierającą ciąg kolorów
             width,
             height,
-            bytes_per_line,             # Definiuje w pamięci rozpoczęcie każdego następnego wiersza
-            QImage.Format.Format_RGB888 # informacja o tym, że obraz jest 24-bitowy, po 8 bitów na kolor
+            bytes_per_line,              # Definiuje w pamięci rozpoczęcie każdego następnego wiersza
+            QImage.Format.Format_RGB888  # informacja o tym, że obraz jest 24-bitowy, po 8 bitów na kolor
         )
 
     # Obsługa obrazów w odcieniach szarości (1 kanał)
@@ -54,14 +57,13 @@ def convert_cv_to_pixmap(cv_img):
         bytes_per_line = width
 
         # Utworzenie obiektu QImage
-        q_img = QImage(cv_img.data,
-           width,
-           height,
-           bytes_per_line,                  # Definiuje w pamięci rozpoczęcie każdego następnego wiersza
-           QImage.Format.Format_Grayscale8  # Informacja o tym, w jakim formacie ma być obraz
+        q_img = QImage(
+            cv_img.data,
+            width,
+            height,
+            bytes_per_line,                  # Definiuje w pamięci rozpoczęcie każdego następnego wiersza
+            QImage.Format.Format_Grayscale8  # Informacja o tym, w jakim formacie ma być obraz
         )
 
     # Konwertuję na QPixmap, aby to wyświetlić w PyQt widget-cie i zwracam z funkcji
     return QPixmap.fromImage(q_img)
-
-
