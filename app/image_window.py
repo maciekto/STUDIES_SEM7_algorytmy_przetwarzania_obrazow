@@ -1,25 +1,25 @@
 # image_window.py
+import numpy as np
 from PyQt6.QtGui import QResizeEvent
-from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QMenu, QFileDialog, QSizePolicy
+from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog
 from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import pyqtSignal
 import cv2
 
-from multi_lut_dialog import MultiLutDialog
+from HistogramPlotDialog import HistogramPlotDialog
 from utils import convert_cv_to_pixmap
-from algorithms import generate_lut_histogram
-from single_lut_dialog import SingleLutDialog
+from algorithms import generate_lut_histogram, linear_streching_histogram
 
-# Tu będziesz importować swoje algorytmy z algorithms.py
 
 class ImageWindow(QMainWindow):
-    def __init__(self, cv_image, title="Obraz", main_app_window=None):
+    def __init__(self, cv_image: np.ndarray, title: str = "Obraz", main_app_window=None):
         super().__init__()
         self.setWindowTitle(title)
         self.main_app_window = main_app_window  # Referencja do okna głównego zawierającego listę otwartych okien
         self._child_windows = []    # Tablica przechowująca okna wynikowe operacji lub wykresy
 
         self.cv_image = cv_image    # Przechowuje oryginał w formacie OpenCV (tablica NumPy)
-        self.pixmap = convert_cv_to_pixmap(cv_image) # Przechowuje pixmap-ę
+        self.pixmap = convert_cv_to_pixmap(cv_image)  # Przechowuje pixmap-ę
         self.view_mode = "aspect_fit"  # Ustawiam aktualny tryb aspect_fit/fit/original
 
         # Ustawienie GUI do wyświetlania
@@ -71,11 +71,14 @@ class ImageWindow(QMainWindow):
         lab1_menu = menu_bar.addMenu("Lab 1")
 
         # Przykład: Wywołanie histogramu (Zadanie 3 z Lab 1)
-        action_hist = lab1_menu.addAction("Pokaż Histogram")
+        action_hist = lab1_menu.addAction("Zad 2 i 3 - Pokaż Histogram i tablicę LUT")
         action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
 
+        linear_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe")
+        linear_streching.triggered.connect(lambda: self.on_action_linear_streching_triggered(self.cv_image))
+
         # Menu dla lab-ów 2
-        lab2_menu = menu_bar.addMenu("Lab 2")
+        # lab2_menu = menu_bar.addMenu("Lab 2")
         # Tu dodasz operacje arytmetyczne, logiczne itd.
 
     # ------------------------------
@@ -84,6 +87,7 @@ class ImageWindow(QMainWindow):
 
     def on_file_open_triggered(self):
         self.main_app_window.open_image_dialog()
+
     def on_file_duplicate_triggered(self):
 
         # Bez użycia cv_image.copy() przekazana zostałaby referencja i wtedy edytując jedno zdjęcie zmiany byłyby na 2
@@ -93,10 +97,12 @@ class ImageWindow(QMainWindow):
         # Dodanie okna do listy przechowywanych referencji dla garbage collector-a, żeby nie usuwał
         self.main_app_window.open_windows.append(duplicated_image)
 
+        def cleanup():
+            if duplicated_image in self.main_app_window.open_windows:
+                self.main_app_window.open_windows.remove(duplicated_image)
+
         # Kiedy okno jest zamknięte przez użytkownika zostaje usunięte z listy
-        duplicated_image.destroyed.connect(
-            lambda: self.main_app_window.open_windows.remove(duplicated_image) if duplicated_image in self.main_app_window.open_windows else None
-        )
+        duplicated_image.destroyed.connect(cleanup)
 
     def on_file_save_triggered(self):
 
@@ -196,33 +202,26 @@ class ImageWindow(QMainWindow):
     def on_action_histogram_triggered(self, image_data):
         # Ta funkcja zostanie wywołana PRZY KLIKNIĘCIU
         histogram_data = generate_lut_histogram(image_data)
-        lut_dialog = None
-        if image_data.shape == 1:
-            lut_dialog = SingleLutDialog(histogram_data, 'Jasność', 'Ilość pixel-i danej jasności', self)
+        histogram_dialog = None
+        try:
+            histogram_dialog = HistogramPlotDialog(histogram_data, self)
+        except Exception as e:
+            print(f"Błąd podczas tworzenia HistogramPlotDialog: {e}")
+            return
 
-        else:
-            print("Lut dialog dla wielu tablic lut")
+        if histogram_dialog:
+            histogram_dialog.show()
 
-            # Tworzy ustrukturyzowany słownik dla klasy multi_lut_dialog do poprawnego wyświetlenia
-            structured_histogram_data = {
-                "RED": {
-                    "data": histogram_data["RED"],
-                    "index_label": "Jasność (RED)",
-                    "index_value": "Ilość pixel-i"
-                },
-                "GREEN": {
-                    "data": histogram_data["GREEN"],
-                    "index_label": "Jasność (GREEN)",
-                    "index_value": "Ilość pixel-i"
-                },
-                "BLUE": {
-                    "data": histogram_data["BLUE"],
-                    "index_label": "Jasność (BLUE)",
-                    "index_value": "Ilość pixel-i"
-                }
-            }
-            lut_dialog = MultiLutDialog(structured_histogram_data, self)
-        if lut_dialog:
-            lut_dialog.show()
-        # 1. Oblicz tablicę LUT (algorithms.calculate_histogram)
-        # 2. nowe okno dialogowe rysujące słupki na QGraphicsView lub Matplotlib
+            self._child_windows.append(histogram_dialog)
+
+            def cleanup():
+                if histogram_dialog in self._child_windows:
+                    self._child_windows.remove(histogram_dialog)
+
+            # Usunięcie referencji, gdy użytkownik zamknie okno
+            histogram_dialog.destroyed.connect(cleanup)
+
+    def on_action_linear_streching_triggered(self, image_data):
+        self.cv_image = linear_streching_histogram(image_data)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()

@@ -3,6 +3,7 @@ import sys
 import cv2
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget
 from image_window import ImageWindow
+from utils import smart_image_read
 
 
 class MainWindow(QMainWindow):
@@ -41,7 +42,7 @@ class MainWindow(QMainWindow):
         if file_path:
 
             # imread (image read) wczytuje obraz jako BGR
-            cv_img = cv2.imread(file_path)
+            cv_img = smart_image_read(file_path)
 
             if cv_img is not None:
                 # Tworzymy nowe, niezależne okno dla tego zdjęcia

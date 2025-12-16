@@ -8,7 +8,7 @@ from typing import Dict
 """
 Example:
 
-"RED" : {
+"red" : {
     "data": Array,
     "index_label": "Jasność (Red)",
     "value_label": "Liczba pixel-i"

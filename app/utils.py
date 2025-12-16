@@ -1,8 +1,24 @@
 # utils.py
 import cv2
+import numpy as np
 from PyQt6.QtGui import QImage, QPixmap
 
+def smart_image_read(file_path):
+    """
+    Wczytuje obraz i automatycznie decyduje, czy zwrócić go jako obraz kolorowy (BGR) czy szaroodcieniowy (Grayscale)
+    """
+    img = cv2.imread(file_path)
 
+    if img is None:
+        return None
+
+    if len(img.shape) == 3 and img.shape[2] == 3:
+        b, g, r = cv2.split(img)
+
+        if np.array_equal(b, g) and np.array_equal(g, r):
+            return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    return img
 def convert_cv_to_pixmap(cv_img):
     """
     Konwertuje obraz z formatu OpenCV (BGR/Grayscale) na QPixmap dla PyQt6 (RGB).
