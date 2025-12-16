@@ -7,7 +7,8 @@ import cv2
 
 from HistogramPlotDialog import HistogramPlotDialog
 from utils import convert_cv_to_pixmap
-from algorithms import generate_lut_histogram, linear_streching_histogram
+from algorithms import generate_lut_histogram, linear_streching_histogram, \
+    linear_saturation_streching_histogram
 
 
 class ImageWindow(QMainWindow):
@@ -75,6 +76,10 @@ class ImageWindow(QMainWindow):
 
         linear_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe")
         linear_streching.triggered.connect(lambda: self.on_action_linear_streching_triggered(self.cv_image))
+
+        linear_saturation_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe z saturacją")
+        (linear_saturation_streching.triggered.
+         connect(lambda: self.on_action_linear_saturation_streching_triggered(self.cv_image)))
 
         # Menu dla lab-ów 2
         # lab2_menu = menu_bar.addMenu("Lab 2")
@@ -222,5 +227,10 @@ class ImageWindow(QMainWindow):
 
     def on_action_linear_streching_triggered(self, image_data):
         self.cv_image = linear_streching_histogram(image_data)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()
+
+    def on_action_linear_saturation_streching_triggered(self, image_data):
+        self.cv_image = linear_saturation_streching_histogram(image_data)
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
         self.show_image()

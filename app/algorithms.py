@@ -123,3 +123,94 @@ def linear_streching_histogram(image_data: np.ndarray):
                     new_image[y, x, c] = int(new_pixel)
 
     return new_image
+
+
+def linear_saturation_streching_histogram(image_data: np.ndarray):
+    """
+    Rozciąganie liniowe z przesyceniem (5%)
+    Ucina 2.5% najciemniejszych i 2.5% najjaśniejszych pikseli
+
+    Zoptymalizowany wzór:
+    nowy_pixel = (stary_pixel - próg_dolny) * 255 / (próg_górny - próg_dolny)
+
+    :param image_data: np.ndarray zdjęcie cv2
+    :return: zwraca nowe zdjęcie
+    """
+
+    # Definicja pod nowy canvas
+    height = image_data.shape[0]
+    width = image_data.shape[1]
+
+    # Kopia obrazu
+    new_image = np.zeros_like(image_data)
+
+    if len(image_data.shape) == 2:
+        print("Rozciąganie z saturacją - Szare")
+
+        # Wyliczenie progu dolnego
+        min_threshold = np.percentile(image_data, 2.5)
+
+        # Wyliczenie progu górnego
+        max_threshold = np.percentile(image_data, 97.5)
+
+        if min_threshold == max_threshold:
+            return image_data
+
+        scale = 255 / (max_threshold - min_threshold)
+
+        # Pętla po wierszach
+        for y in range(height):
+            # Pętla po kolumntach
+            for x in range(width):
+                # Wartość starego pixela
+                old_pixel = image_data[y, x]
+
+                # Nowy pixel wg wzoru. Zamieniam na float, aby podczas obliczeń nie ucinać mnożenia np. dla 2.5,
+                # może uciąć do 2
+                new_pixel = (float(old_pixel) - min_threshold) * scale
+
+                # Zapobieganie liczbom większym 255 i mniejszym niż 0
+                new_pixel = np.clip(new_pixel, 0, 255)
+
+                # Przypisanie do nowego obrazu oraz konwercja do int
+                new_image[y, x] = int(new_pixel)
+
+                # BGR
+    elif len(image_data.shape) == 3:
+        print("Rozciąganie liniowe - Kolorowe")
+        channels = image_data.shape[2]
+
+        for c in range(channels):
+            # Iteracja po kanałach
+
+            # Wyliczenie progów
+            current_channel_data = image_data[:, :, c]
+            # Wyliczenie progu dolnego
+            min_threshold = np.percentile(current_channel_data, 2.5)
+            # Wyliczenie progu górnego
+            max_threshold = np.percentile(current_channel_data, 97.5)
+
+            # Zabezpieczenie
+            if max_threshold == min_threshold:
+                scale = 0
+            else:
+                # Obliczenie drugiej części wzoru
+                scale = 255.0 / (max_threshold - min_threshold)
+
+            # Iteracja po wierszach
+            for y in range(height):
+                # Iteracja po kolumnach
+                for x in range(width):
+                    old_pixel = image_data[y, x, c]
+
+                    # Nowy pixel wg wzoru. Zamieniam na float, aby podczas obliczeń nie ucinać mnożenia np. dla 2.5,
+                    # może uciąć do 2
+                    new_pixel = (float(old_pixel) - min_threshold) * scale
+
+                    # Zapobieganie liczbom większym 255 i mniejszym niż 0
+                    new_pixel = np.clip(new_pixel, 0, 255)
+
+                    # Przypisanie do nowego obrazu oraz konwercja do int
+                    new_image[y, x, c] = int(new_pixel)
+
+    return new_image
