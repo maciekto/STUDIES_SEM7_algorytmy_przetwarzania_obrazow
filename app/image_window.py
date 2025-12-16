@@ -3,6 +3,8 @@ from PyQt6.QtGui import QResizeEvent
 from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QMenu, QFileDialog, QSizePolicy
 from PyQt6.QtCore import Qt, QSize
 import cv2
+
+from multi_lut_dialog import MultiLutDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram
 from single_lut_dialog import SingleLutDialog
@@ -200,7 +202,26 @@ class ImageWindow(QMainWindow):
 
         else:
             print("Lut dialog dla wielu tablic lut")
-            # lut_dialog =
+
+            # Tworzy ustrukturyzowany słownik dla klasy multi_lut_dialog do poprawnego wyświetlenia
+            structured_histogram_data = {
+                "RED": {
+                    "data": histogram_data["RED"],
+                    "index_label": "Jasność (RED)",
+                    "index_value": "Ilość pixel-i"
+                },
+                "GREEN": {
+                    "data": histogram_data["GREEN"],
+                    "index_label": "Jasność (GREEN)",
+                    "index_value": "Ilość pixel-i"
+                },
+                "BLUE": {
+                    "data": histogram_data["BLUE"],
+                    "index_label": "Jasność (BLUE)",
+                    "index_value": "Ilość pixel-i"
+                }
+            }
+            lut_dialog = MultiLutDialog(structured_histogram_data, self)
         if lut_dialog:
             lut_dialog.show()
         # 1. Oblicz tablicę LUT (algorithms.calculate_histogram)

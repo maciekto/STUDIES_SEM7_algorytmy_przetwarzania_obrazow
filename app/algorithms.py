@@ -2,9 +2,12 @@ import numpy as np
 
 
 def generate_lut_histogram(image_data: np.ndarray = None) -> None | np.ndarray | dict[str, np.ndarray]:
+    """Funkcja generująca tablicę lut dla histogramu"""
 
     if image_data is None:
         return None
+
+    # Szaro-odcieniowy
     if len(image_data.shape) == 1:
         mono_lut = np.zeros(256, dtype=np.uint32)
 
@@ -12,6 +15,8 @@ def generate_lut_histogram(image_data: np.ndarray = None) -> None | np.ndarray |
             mono_lut[pixel_value] += 1
 
         return mono_lut
+
+    # RGB
     if len(image_data.shape) == 3:
         blue_lut = np.zeros(256, dtype=np.uint32)
         green_lut = np.zeros(256, dtype=np.uint32)
