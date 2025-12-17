@@ -223,19 +223,97 @@ def histogram_equalization(image_data: np.ndarray):
     Algorytm:
 
     1. Potrzebna tablica lut. Generowanie za pomocą funkcji generate_lut_histogram
-    2. Liczenie sumowania narastającego (nowy pixel = poprzedni + aktualny)
-    3. Znalezienie dystrybuanty minimalnej???
-    4. Oblieczenie LUT ?????
-    5. Mapowanie ????
+    2. Na tablicy lut_histogram wykonuję sumę narastającą (nowa tabela) w celu użycia wartości w każdym punkcie pod
+        wzór na nową wartość jasności
+    3. Znalezienie dystrybuanty minimalnej, czyli miejsca w tablicy sumy narastającej gdzie jest pierwsza wartość
+        niezerowa
+    4.  Na tablicy sumy narastającej wykonuję pętlę ze wzorem iwpisuję tę wartość do nowej tablicy lut zawierającą
+        przekształcenie
+    5. Na podstawie nowej tablicy lut wykonuję przekształcenie na cały obrazie pixel po pixelu, np. pixel o wartości 5
+        zmienia się w pixel o wartości 15, jeżeli w nowej tablicy lut nowa_tablica_lut[5] = 15
     """
-    height = image_data.shape[0]
-    width = image_data.shape[1]
-    total_pixels = height * width
 
-    new_image = np.zeros_like(image_data)
-
+    height, width = image_data.shape[:2]    # do obliczenia total_pixel do wzoru oraz na pętlę
+    total_pixels = height * width           # mianownik wzoru
+    new_image = np.zeros_like(image_data)   # zarezerwowanie pamięci na nowy obrazek
 
     # Szaroodcieniowy
     if len(image_data.shape) == 2:
-        print("Equalizacja Manualna - Szare")
+        print("Equalizacja - Szaroodcieniowe")
 
+        # Punkt 1 algorytmu
+        lut_hist = generate_lut_histogram(image_data)
+
+        # Punkt 2 algorytmu
+        cdf_array = np.zeros(int(len(lut_hist)))
+
+        for brightness, contu in enumerate(lut_hist):
+            if brightness == 0:
+                cdf_array[brightness] = lut_hist[brightness]
+            else:
+                cdf_array[brightness] = cdf_array[brightness - 1] + lut_hist[brightness]
+
+        # Punkt 3 algorytmu
+        cdf_min = 0
+        for value in cdf_array:
+            if value > 0:
+                cdf_min = value
+                break
+
+        # Punkt 4 algorytmu
+        new_lut_table = np.zeros(int(len(lut_hist)))
+
+        for index, cdf in enumerate(cdf_array):
+            new_lut_table[index] = ((cdf_array[index] - cdf_min) / (total_pixels - cdf_min)) * 255
+
+        # Punkt 5 algorytmu
+        # Iteracja po wierszach pixeli obrazu
+        for x in range(height):
+            # Iteracja po kolumnach pixeli obrazu
+            for y in range(width):
+                current_pixel_value = image_data[x, y]
+                new_pixel_value = new_lut_table[current_pixel_value]
+                new_image[x, y] = new_pixel_value
+
+    # Kolorowy
+    if len(image_data.shape) == 3:
+        print("Equalizacja - Kolorowe")
+
+        # Dla każdego kanału należy obliczyć nową wartość, a nie dla ich sumy
+        for channel in range(image_data.shape[2]):
+
+            # Punkt 1 algorytmu
+            lut_hist = generate_lut_histogram(image_data[:, :, channel])
+
+            # Punkt 2 algorytmu
+            cdf_array = np.zeros(int(len(lut_hist)))
+
+            for brightness, contu in enumerate(lut_hist):
+                if brightness == 0:
+                    cdf_array[brightness] = lut_hist[brightness]
+                else:
+                    cdf_array[brightness] = cdf_array[brightness - 1] + lut_hist[brightness]
+
+            # Punkt 3 algorytmu
+            cdf_min = 0
+            for value in cdf_array:
+                if value > 0:
+                    cdf_min = value
+                    break
+
+            # Punkt 4 algorytmu
+            new_lut_table = np.zeros(int(len(lut_hist)))
+
+            for index, cdf in enumerate(cdf_array):
+                new_lut_table[index] = ((cdf_array[index] - cdf_min) / (total_pixels - cdf_min)) * 255
+
+            # Punkt 5 algorytmu
+            # Iteracja po wierszach pixeli obrazu
+            for x in range(height):
+                # Iteracja po kolumnach pixeli obrazu
+                for y in range(width):
+                    current_pixel_value = image_data[x, y, channel]
+                    new_pixel_value = new_lut_table[current_pixel_value]
+                    new_image[x, y, channel] = new_pixel_value
+
+    return new_image
