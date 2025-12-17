@@ -220,6 +220,13 @@ def histogram_equalization(image_data: np.ndarray):
     """
     Wyrównanie histogramu (Equalizacja).
 
+    Wzór na obliczenie nowego pixel-a:
+
+    licznik = aktualna_dystrybuanta - wyliczona_minimalna_dystrybuanta
+    mianownik = ilość_wszystkich_pixeli - wyliczona_minimalna_dystrybuanta
+
+    nowy_pixel = (licznik / mianownik) * maxymalna_dostępna_jasność
+
     Algorytm:
 
     1. Potrzebna tablica lut. Generowanie za pomocą funkcji generate_lut_histogram
