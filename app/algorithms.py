@@ -214,3 +214,28 @@ def linear_saturation_streching_histogram(image_data: np.ndarray):
                     new_image[y, x, c] = int(new_pixel)
 
     return new_image
+
+
+def histogram_equalization(image_data: np.ndarray):
+    """
+    Wyrównanie histogramu (Equalizacja).
+
+    Algorytm:
+
+    1. Potrzebna tablica lut. Generowanie za pomocą funkcji generate_lut_histogram
+    2. Liczenie sumowania narastającego (nowy pixel = poprzedni + aktualny)
+    3. Znalezienie dystrybuanty minimalnej???
+    4. Oblieczenie LUT ?????
+    5. Mapowanie ????
+    """
+    height = image_data.shape[0]
+    width = image_data.shape[1]
+    total_pixels = height * width
+
+    new_image = np.zeros_like(image_data)
+
+
+    # Szaroodcieniowy
+    if len(image_data.shape) == 2:
+        print("Equalizacja Manualna - Szare")
+
