@@ -1,7 +1,10 @@
 # algorithms.py
+import math
+
 import numpy as np
 
 
+# Dla Lab1 - zadanie 2
 def generate_lut_histogram(image_data: np.ndarray = None) -> None | np.ndarray | dict[str, np.ndarray]:
     """Funkcja generująca tablicę lut dla histogramu"""
 
@@ -41,6 +44,7 @@ def generate_lut_histogram(image_data: np.ndarray = None) -> None | np.ndarray |
         }
 
 
+# Dla Lab1 - zadanie 3
 def linear_streching_histogram(image_data: np.ndarray):
     """
     Funkcja przyjmuje originalny obraz (image_data) i wykonuje operacje rozciągnięcia liniowego
@@ -125,6 +129,7 @@ def linear_streching_histogram(image_data: np.ndarray):
     return new_image
 
 
+# Dla Lab1 - zadanie 3
 def linear_saturation_streching_histogram(image_data: np.ndarray):
     """
     Rozciąganie liniowe z przesyceniem (5%)
@@ -216,6 +221,7 @@ def linear_saturation_streching_histogram(image_data: np.ndarray):
     return new_image
 
 
+# Dla Lab1 - zadanie 3
 def histogram_equalization(image_data: np.ndarray):
     """
     Wyrównanie histogramu (Equalizacja).
@@ -324,3 +330,115 @@ def histogram_equalization(image_data: np.ndarray):
                     new_image[x, y, channel] = new_pixel_value
 
     return new_image
+
+
+# Dla Lab1 - zadanie 4
+def point_negation(image_data: np.ndarray):
+    """
+    Wzór na negację
+    nowy_pixel = 255 - stary_pixel
+    :param image_data: tablica z danym obrazu
+    :return: Zwraca nowy obraz
+    """
+
+    # Biblioteka numpy odejmuje 255 od każdego elementu w tablicy
+    return 255 - image_data
+
+
+# Dla Lab1 - zadanie 4
+def point_posterize(image_data: np.ndarray, levels: int):
+    """
+    Redukcja poziomów szarości (posteryzacja)
+    Dzieli zakres 0-255 na podaną przez użytkownika ilość kawałków
+
+    Algorytm:
+    1. Dzielę zakres jasności 255 na tyle poziomów, ile chce użytkownik
+
+        Wzór do wyliczenia progów:
+        255 / (levels - 1)
+    2. Na każdym pixelu wykonuję operację sprawdzenia, do jakiego zakresu wpada dany pixel i przypisuję mu odpowiedą
+        nową wartość
+
+        Wzór do wyliczenia, do jakiego zakresu wpada pixel:
+        index_zakresu = floor((stary_pixel * levels) / 256)
+
+
+    :param image_data: tablica z danym obrazu
+    :param levels: podany przez użytkownika numer
+    :return: Zwraca nowy obraz
+    """
+    height, width = image_data.shape[:2]
+    new_image = np.zeros_like(image_data)
+
+    # Szaroodcieniowe
+    if len(image_data.shape) == 2:
+        print("Posteryzacja - Szaroodcieniowe")
+        # Punkt 1 algorytmu
+        steps = np.zeros(levels)
+
+        for index in range(len(steps)):
+            steps[index] = int((255 / (levels - 1)) * index)
+
+        # Punkt 2 algorytmu
+        for x in range(height):
+            for y in range(width):
+                # Przepisuję do zmiennej z int() ponieważ dane są w uint8, czyli podczas mnożenia
+                # dostanę resztę z dzielenia
+                old_pixel_value = int(image_data[x, y])
+                step = math.floor((old_pixel_value * levels) / 256)
+                new_image[x, y] = steps[step]
+
+    if len(image_data.shape) == 3:
+        print("Posteryzacja - Kolorowe")
+
+        for channel in range(image_data.shape[2]):
+            # Punkt 1 algorytmu
+            steps = np.zeros(levels)
+
+            for index in range(len(steps)):
+                steps[index] = int((255 / (levels - 1)) * index)
+
+            # Punkt 2 algorytmu
+            for x in range(height):
+                for y in range(width):
+                    # Przepisuję do zmiennej z int() ponieważ dane są w uint8, czyli podczas mnożenia dostanę
+                    # resztę z dzielenia
+                    old_pixel_value = int(image_data[x, y, channel])
+                    step = math.floor((old_pixel_value * levels) / 256)
+                    new_image[x, y, channel] = steps[step]
+
+    return new_image
+
+
+# Dla Lab1 - zadanie 4
+def point_binary_threshold(image_data: np.ndarray, threshold: int):
+    """
+    Progowanie binarne
+
+    Algorytm:
+    Jeżeli, pixel > od progu = 255
+    Jeżeli, pixel < od progu = 0
+    :param image_data: tablica ndarray zwierająca dane obrazu
+    :param threshold: próg podany przez użytkownika
+    :return: zwraca nowy obraz
+    """
+    # Biblioteka numpy dla każdego elementu wykonuje operację:
+    # np.where(warunek, jeżeli_tak, jeżeli_nie)
+    # dodatkowo należy dodać typ, w jakim zostanie zwrócona wartość
+    return np.where(image_data > threshold, 255, 0).astype(np.uint8)
+
+
+# Dla Lab1 - zadanie 4
+def point_keep_gray_threshold(image_data: np.ndarray, threshold: int):
+    """
+    Progowanie z zachowaniem poziomów szarości
+
+    Algorytm:
+    Jeżeli pixel > próg = zostawiam bez zmian
+    Jeżeli pixel < próg = 0
+    :param image_data: tablica ndarray zwierająca dane obrazu
+    :param threshold: próg podany przez użytkownika
+    :return: zwraca nowy obraz
+    """
+
+    return np.where(image_data > threshold, image_data, 0).astype(np.uint8)

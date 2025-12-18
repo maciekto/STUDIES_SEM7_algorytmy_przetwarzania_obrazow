@@ -1,14 +1,15 @@
 # image_window.py
 import numpy as np
 from PyQt6.QtGui import QResizeEvent
-from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog
+from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInputDialog, QMessageBox
 from PyQt6.QtCore import Qt, QSize
 import cv2
 
 from HistogramPlotDialog import HistogramPlotDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
-    linear_saturation_streching_histogram, histogram_equalization
+    linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
+    point_binary_threshold, point_keep_gray_threshold
 
 
 class ImageWindow(QMainWindow):
@@ -16,9 +17,9 @@ class ImageWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(title)
         self.main_app_window = main_app_window  # Referencja do okna głównego zawierającego listę otwartych okien
-        self._child_windows = []    # Tablica przechowująca okna wynikowe operacji lub wykresy
+        self._child_windows = []  # Tablica przechowująca okna wynikowe operacji lub wykresy
 
-        self.cv_image = cv_image    # Przechowuje oryginał w formacie OpenCV (tablica NumPy)
+        self.cv_image = cv_image  # Przechowuje oryginał w formacie OpenCV (tablica NumPy)
         self.pixmap = convert_cv_to_pixmap(cv_image)  # Przechowuje pixmap-ę
         self.view_mode = "aspect_fit"  # Ustawiam aktualny tryb aspect_fit/fit/original
 
@@ -30,9 +31,9 @@ class ImageWindow(QMainWindow):
         self.scroll_area.setWidgetResizable(True)  # Włącza zmianę wielkości okna
         self.setCentralWidget(self.scroll_area)  # Ustawia QScrollArea jako jedyny, wypełniający
 
-        self.show_image()       # Wyświetlenie obrazu
+        self.show_image()  # Wyświetlenie obrazu
 
-        self.create_menus()     # Menu okna ze zdjęciem
+        self.create_menus()  # Menu okna ze zdjęciem
 
     def show_image(self):
         """Odświeża widok w oknie na podstawie self.cv_image"""
@@ -71,19 +72,31 @@ class ImageWindow(QMainWindow):
         lab1_menu = menu_bar.addMenu("Lab 1")
 
         # Przykład: Wywołanie histogramu (Zadanie 3 z Lab 1)
-        action_hist = lab1_menu.addAction("Zad 2 i 3 - Pokaż Histogram i tablicę LUT")
-        action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
+        ui_action_hist = lab1_menu.addAction("Zad 2 i 3 - Pokaż Histogram i tablicę LUT")
+        ui_action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
 
-        linear_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe")
-        linear_streching.triggered.connect(lambda: self.on_action_linear_streching_triggered(self.cv_image))
+        ui_linear_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe")
+        ui_linear_streching.triggered.connect(lambda: self.on_action_linear_streching_triggered(self.cv_image))
 
-        linear_saturation_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe z saturacją")
-        (linear_saturation_streching.triggered.
+        ui_linear_saturation_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe z saturacją")
+        (ui_linear_saturation_streching.triggered.
          connect(lambda: self.on_action_linear_saturation_streching_triggered(self.cv_image)))
 
-        histogram_equalization = lab1_menu.addAction("Zad 3 - equalizacja histogramu")
-        (histogram_equalization.triggered.
-         connect(lambda: self.on_histogram_equalization_trigegered(self.cv_image)))
+        ui_histogram_equalization = lab1_menu.addAction("Zad 3 - equalizacja histogramu")
+        (ui_histogram_equalization.triggered.
+         connect(lambda: self.on_histogram_equalization_triggered(self.cv_image)))
+
+        ui_point_negation = lab1_menu.addAction("Zad 4 - Negacja")
+        ui_point_negation.triggered.connect(lambda: self.on_point_negation_triggered(self.cv_image))
+
+        ui_point_posterize = lab1_menu.addAction("Zad 4 - Redukcja poziomów szarości (posteryzacja)")
+        ui_point_posterize.triggered.connect(lambda: self.on_point_posterize_triggered(self.cv_image))
+
+        ui_point_threshold = lab1_menu.addAction("Zad 4 - Progowanie binarne")
+        ui_point_threshold.triggered.connect(lambda: self.on_point_binary_threshold_triggered(self.cv_image))
+
+        ui_keep_gray_threshold = lab1_menu.addAction("Zad 4 - Progowanie z zachowaniem szarości")
+        ui_keep_gray_threshold.triggered.connect(lambda: self.on_keep_gray_threshold_triggered(self.cv_image))
 
         # Menu dla lab-ów 2
         # lab2_menu = menu_bar.addMenu("Lab 2")
@@ -207,6 +220,8 @@ class ImageWindow(QMainWindow):
     # ------------------------------
     # MENU LAB1 OPTIONS METHODS
     # ------------------------------
+
+    # Zadanie 2
     def on_action_histogram_triggered(self, image_data):
         # Ta funkcja zostanie wywołana PRZY KLIKNIĘCIU
         histogram_data = generate_lut_histogram(image_data)
@@ -229,6 +244,7 @@ class ImageWindow(QMainWindow):
             # Usunięcie referencji, gdy użytkownik zamknie okno
             histogram_dialog.destroyed.connect(cleanup)
 
+    # Zadanie 3
     def on_action_linear_streching_triggered(self, image_data):
         self.cv_image = linear_streching_histogram(image_data)
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
@@ -238,7 +254,77 @@ class ImageWindow(QMainWindow):
         self.cv_image = linear_saturation_streching_histogram(image_data)
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
         self.show_image()
-    def on_histogram_equalization_trigegered(self, image_data):
+
+    def on_histogram_equalization_triggered(self, image_data):
         self.cv_image = histogram_equalization(image_data)
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
         self.show_image()
+
+    # Zadanie 4
+
+    def ensure_grayscale(self):
+        """
+        Funkcja pomocnicza sprawdzająca, czy obraz jest w odcieniach szarości i w wypadku, gdy nie jest,
+        prosi użytkownika o potwierdzenie zamienienia w celu wykonania operacji
+        :return:
+        """
+        if len(self.cv_image.shape) == 3:
+            reply = QMessageBox.question(self, "Konwersja",
+                                         "Operacja wymaga obrazu w odcieniach szarości. Czy skonwertować?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.cv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
+                self.pixmap = convert_cv_to_pixmap(self.cv_image)
+                self.show_image()
+                return True
+            else:
+                return False
+        return True
+
+    def on_point_negation_triggered(self, image_data: np.ndarray):
+        self.cv_image = point_negation(image_data)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()
+
+    def on_point_posterize_triggered(self, image_data: np.ndarray):
+        # Okno, w którym użytkownik wpisuje ilość poziomó∑
+        levels, ok = QInputDialog.getInt(self, "Posteryzacja",
+                                         "Podaj liczbę poziomów:", value=4, min=2, max=255, step=1)
+        if ok:
+            self.cv_image = point_posterize(image_data, levels)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+    def on_point_binary_threshold_triggered(self, image_data: np.ndarray):
+        is_image_grayscale = self.ensure_grayscale()
+
+        # Jeżeli użytkownik nie wyraził zgody wychodzę z funkcji
+        if not is_image_grayscale:
+            return False
+
+        threshold, ok = QInputDialog.getInt(self, "Progowanie binarne",
+                                            "Podaj próg progowania(0-255): ",
+                                            value=127, min=0, max=255)
+        if ok:
+            self.cv_image = point_binary_threshold(self.cv_image, threshold)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+    def on_keep_gray_threshold_triggered(self, image_data: np.ndarray):
+        is_image_grayscale = self.ensure_grayscale()
+
+        # Jeżeli użytkownik nie wyraził zgody wychodzę z funkcji
+        if not is_image_grayscale:
+            return False
+
+        threshold, ok = QInputDialog.getInt(self, "Progowanie z zachowanie szarości",
+                                            "Podaj próg progowania(0-255): ",
+                                            value=127, min=0, max=255)
+        if ok:
+            self.cv_image = point_keep_gray_threshold(self.cv_image, threshold)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+    # ------------------------------
+    # MENU LAB2 OPTIONS METHODS
+    # ------------------------------
