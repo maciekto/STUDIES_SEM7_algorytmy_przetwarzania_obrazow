@@ -10,7 +10,7 @@ from image_selection_dialog import ImageSelectionDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
-    point_binary_threshold, point_keep_gray_threshold
+    point_binary_threshold, point_keep_gray_threshold, multi_image_addition
 
 
 class ImageWindow(QMainWindow):
@@ -93,17 +93,27 @@ class ImageWindow(QMainWindow):
         ui_point_posterize.triggered.connect(lambda: self.on_point_posterize_triggered(self.cv_image))
 
         ui_point_threshold = lab1_menu.addAction("Zad 4 - Progowanie binarne")
-        ui_point_threshold.triggered.connect(lambda: self.on_point_binary_threshold_triggered(self.cv_image))
+        ui_point_threshold.triggered.connect(lambda: self.on_point_binary_threshold_triggered())
 
         ui_keep_gray_threshold = lab1_menu.addAction("Zad 4 - Progowanie z zachowaniem szarości")
-        ui_keep_gray_threshold.triggered.connect(lambda: self.on_keep_gray_threshold_triggered(self.cv_image))
+        ui_keep_gray_threshold.triggered.connect(lambda: self.on_keep_gray_threshold_triggered())
 
         # Menu dla lab-ów 2
         lab2_menu = menu_bar.addMenu("Lab 2")
 
+        lab2_zad1_menu = lab2_menu.addMenu("Zad 1")
+
+        ui_multi_image_addition = lab2_zad1_menu.addAction("Dodawanie obrazów")
+        ui_multi_image_addition.triggered.connect(lambda: self.on_multi_image_addition_triggered())
+
+        ui_scalar_operation = lab2_zad1_menu.addAction("Operacje skalarne")
+        ui_scalar_operation.triggered.connect(lambda: self.on_scalar_operation_triggered())
+
+        ui_absolute_difference = lab2_zad1_menu.addAction("Różnica bezwzględna")
+        ui_absolute_difference.triggered.connect(lambda: self.on_absolute_difference_triggered())
+
         ui_select_windows_test = lab2_menu.addAction("Select images")
         ui_select_windows_test.triggered.connect(self.select_additional_images)
-
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -115,7 +125,8 @@ class ImageWindow(QMainWindow):
     def on_file_duplicate_triggered(self):
 
         # Bez użycia cv_image.copy() przekazana zostałaby referencja i wtedy edytując jedno zdjęcie zmiany byłyby na 2
-        duplicated_image = ImageWindow(self.cv_image.copy(), title=f'(Copy) {self.windowTitle()}')
+        duplicated_image = ImageWindow(self.cv_image.copy(), title=f'(Copy) {self.windowTitle()}',
+                                       main_app_window=self.main_app_window)
         duplicated_image.show()
 
         # Dodanie okna do listy przechowywanych referencji dla garbage collector-a, żeby nie usuwał
@@ -298,7 +309,7 @@ class ImageWindow(QMainWindow):
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
 
-    def on_point_binary_threshold_triggered(self, image_data: np.ndarray):
+    def on_point_binary_threshold_triggered(self):
         is_image_grayscale = self.ensure_grayscale()
 
         # Jeżeli użytkownik nie wyraził zgody wychodzę z funkcji
@@ -313,7 +324,7 @@ class ImageWindow(QMainWindow):
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
 
-    def on_keep_gray_threshold_triggered(self, image_data: np.ndarray):
+    def on_keep_gray_threshold_triggered(self,):
         is_image_grayscale = self.ensure_grayscale()
 
         # Jeżeli użytkownik nie wyraził zgody wychodzę z funkcji
@@ -355,3 +366,37 @@ class ImageWindow(QMainWindow):
 
         # Jeżeli kliknięte Anuluj
         return None
+
+    def on_multi_image_addition_triggered(self):
+        """Dodanie obrazów z saturacją lub bez"""
+
+        # Wybranie obrazów z listy
+        other_images = self.select_additional_images()
+        if other_images is None:
+            return
+
+        reply = QMessageBox.question(self,
+                                     "Wybranie saturacji",
+                                     "Czy chcesz zastosować wysycenie?\n\n"
+                                     "Tak - Wysycenie\n"
+                                     "Nie - Uśrednienie dla wszystkich obrazów",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        is_saturate = (reply == QMessageBox.StandardButton.Yes)
+
+        all_images = [self.cv_image] + other_images
+
+        try:
+            self.cv_image = multi_image_addition(all_images, saturate=is_saturate)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd wielkości zdjęć", str(e))
+
+    @staticmethod
+    def on_scalar_operation_triggered():
+        print("On scalar operation")
+
+    @staticmethod
+    def on_absolute_difference_triggered():
+        print("On absolute differenct")

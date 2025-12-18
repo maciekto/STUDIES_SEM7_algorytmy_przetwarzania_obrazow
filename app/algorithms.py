@@ -246,9 +246,9 @@ def histogram_equalization(image_data: np.ndarray):
         zmienia się w pixel o wartości 15, jeżeli w nowej tablicy lut nowa_tablica_lut[5] = 15
     """
 
-    height, width = image_data.shape[:2]    # do obliczenia total_pixel do wzoru oraz na pętlę
-    total_pixels = height * width           # mianownik wzoru
-    new_image = np.zeros_like(image_data)   # zarezerwowanie pamięci na nowy obrazek
+    height, width = image_data.shape[:2]  # do obliczenia total_pixel do wzoru oraz na pętlę
+    total_pixels = height * width  # mianownik wzoru
+    new_image = np.zeros_like(image_data)  # zarezerwowanie pamięci na nowy obrazek
 
     # Szaroodcieniowy
     if len(image_data.shape) == 2:
@@ -442,3 +442,69 @@ def point_keep_gray_threshold(image_data: np.ndarray, threshold: int):
     """
 
     return np.where(image_data > threshold, image_data, 0).astype(np.uint8)
+
+
+# Dla Lab2 - zadanie 1
+def check_compatibility(img1: np.ndarray, img2: np.ndarray) -> bool:
+    """Sprawdza, czy obrazy mają ten sam rozmiar i liczbę kanałów"""
+
+    # .shape zwraca krotkę (wysokość, szerokość, kanały)
+    # operator porównania porównuje krotki między sobą (ich wartości)
+    return img1.shape == img2.shape
+
+
+def multi_image_addition(images: list[np.ndarray], saturate: bool = True):
+    """
+    Algorytmy:
+    Dla saturacji pozytywnej:
+    Dodaję tablicę obrazów do siebie i na końcu obcinam wszystkie wartości do maksymalnej jasności
+
+    Dla saturacji negatywnej, czyli uśrednienie:
+    Dodaję również każdą tablicę do siebie, ale wartości każdej z nich dzielę przez ilość przekazanych obrazów,
+    dzięki czemu nie tracę danych podczas ucinania, ponieważ ucinać nie trzeba.
+
+    Funkcja dodająca obrazy do siebie
+    :param images: przekazana lista zdjęć z dialogu
+    :param saturate: True: Suma i obcięcie do 255, False: Uśrednianie, czyli skalowanie wagowe z uniknięciem wysycenia
+    :return: Zwraca gotowy obraz
+    """
+
+    if not images:
+        return None
+
+    # Walidacja rozmiarów
+    reference_image = images[0]
+
+    # Iteracja po liście zdjęć bez pierwszeg o porównanie ich między sobą
+    for index, image in enumerate(images[1:]):
+        if not check_compatibility(reference_image, image):
+            raise ValueError(f"Niezgodność rozmiarów! Pierwszy przekazany obraz ma {reference_image.shape}. Przekazany "
+                             f"{index+2} obraz ma wymiar {image.shape}")
+
+    # Konwertuję na float dla precyzji obliczeń
+    result_image_float = np.zeros_like(reference_image, dtype=np.float32)
+
+    images_count = len(images)
+
+    # Dla wysycenia
+    if saturate:
+        # Zsumowanie wartości
+        for image in images:
+            result_image_float += image.astype(np.float32)
+
+        # Obcięcie wartości nadmiarowych
+        result_image_float = np.clip(result_image_float, 0, 255)
+
+    # Bez wysycenia
+    if not saturate:
+        # Zsumowanie wartości, ale podzielenie przez sumę przekazanych obrazów
+        for image in images:
+            result_image_float += (image.astype(np.float32) / images_count)
+
+        # Dla pewności klipuję
+        result_image_float = np.clip(result_image_float, 0, 255)
+
+    # Konwertuję na odpowiedni typ danych
+    result_image_uint8 = result_image_float.astype(np.uint8)
+
+    return result_image_uint8
