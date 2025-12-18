@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInpu
 from PyQt6.QtCore import Qt, QSize
 import cv2
 
-from HistogramPlotDialog import HistogramPlotDialog
+from histogram_plot_dialog import HistogramPlotDialog
+from image_selection_dialog import ImageSelectionDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
@@ -13,7 +14,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
 
 
 class ImageWindow(QMainWindow):
-    def __init__(self, cv_image: np.ndarray, title: str = "Obraz", main_app_window=None):
+    def __init__(self, cv_image: np. ndarray, title: str = "Obraz", main_app_window=None):
         super().__init__()
         self.setWindowTitle(title)
         self.main_app_window = main_app_window  # Referencja do okna głównego zawierającego listę otwartych okien
@@ -71,7 +72,6 @@ class ImageWindow(QMainWindow):
         # Menu dla lab-ów 1
         lab1_menu = menu_bar.addMenu("Lab 1")
 
-        # Przykład: Wywołanie histogramu (Zadanie 3 z Lab 1)
         ui_action_hist = lab1_menu.addAction("Zad 2 i 3 - Pokaż Histogram i tablicę LUT")
         ui_action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
 
@@ -99,8 +99,11 @@ class ImageWindow(QMainWindow):
         ui_keep_gray_threshold.triggered.connect(lambda: self.on_keep_gray_threshold_triggered(self.cv_image))
 
         # Menu dla lab-ów 2
-        # lab2_menu = menu_bar.addMenu("Lab 2")
-        # Tu dodasz operacje arytmetyczne, logiczne itd.
+        lab2_menu = menu_bar.addMenu("Lab 2")
+
+        ui_select_windows_test = lab2_menu.addAction("Select images")
+        ui_select_windows_test.triggered.connect(self.select_additional_images)
+
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -328,3 +331,27 @@ class ImageWindow(QMainWindow):
     # ------------------------------
     # MENU LAB2 OPTIONS METHODS
     # ------------------------------
+
+    def select_additional_images(self):
+
+        # Sprawdzam, czy main_app na pewno istnieje
+        if self.main_app_window is None:
+            QMessageBox.critical(self, "Błąd", "Brak dostępu do głównego okna aplikacji")
+            return None
+
+        # Wyświetlam dialog do zaznaczenia okien
+        dialog = ImageSelectionDialog(self.main_app_window, current_window=self, parent=self)
+
+        # Zatrzymuje program do momentu kliknięcia Ok/Anuluj
+        if dialog.exec():
+            # Pobieram zaznaczone obrazy
+            selected_images = dialog.get_selected_images_data()
+
+            if not selected_images:
+                QMessageBox.warning(self, "Info", "Nie zaznaczono żadnych obrazów do wykonania operacji")
+                return None
+
+            return selected_images
+
+        # Jeżeli kliknięte Anuluj
+        return None

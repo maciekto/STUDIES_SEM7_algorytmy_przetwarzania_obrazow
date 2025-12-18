@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt
 import numpy as np
 from typing import Dict, Union
 
-from MplCanvas import MplCanvas
+from mpl_canvas import MplCanvas
 from multi_lut_dialog import MultiLutDialog
 from single_lut_dialog import SingleLutDialog
 
