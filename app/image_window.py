@@ -10,11 +10,11 @@ from image_selection_dialog import ImageSelectionDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
-    point_binary_threshold, point_keep_gray_threshold, multi_image_addition
+    point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation
 
 
 class ImageWindow(QMainWindow):
-    def __init__(self, cv_image: np. ndarray, title: str = "Obraz", main_app_window=None):
+    def __init__(self, cv_image: np.ndarray, title: str = "Obraz", main_app_window=None):
         super().__init__()
         self.setWindowTitle(title)
         self.main_app_window = main_app_window  # Referencja do okna głównego zawierającego listę otwartych okien
@@ -324,7 +324,7 @@ class ImageWindow(QMainWindow):
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
 
-    def on_keep_gray_threshold_triggered(self,):
+    def on_keep_gray_threshold_triggered(self, ):
         is_image_grayscale = self.ensure_grayscale()
 
         # Jeżeli użytkownik nie wyraził zgody wychodzę z funkcji
@@ -393,9 +393,36 @@ class ImageWindow(QMainWindow):
         except ValueError as e:
             QMessageBox.critical(self, "Błąd wielkości zdjęć", str(e))
 
-    @staticmethod
-    def on_scalar_operation_triggered():
-        print("On scalar operation")
+    def on_scalar_operation_triggered(self):
+
+        # Wybranie operacji
+        operations = ["Dodawanie", "Mnożenie", "Dzielenie"]
+        operation_name, ok = QInputDialog.getItem(self, "Operacja", "Wybierz typ operacji", operations, 0, False)
+        if not ok:
+            return
+        operations_map = {"Dodawanie": "addition", "Mnożenie": "multiplication", "Dzielenie": "division"}
+
+        # Wybranie wartości
+        value, ok2 = QInputDialog.getInt(self, "Wybranie wartości o jaką zostanie wykonane przekształcenie",
+                                         "Podaj wartość",
+                                         value=10, min=1, max=255)
+        if not ok2:
+            return
+
+        is_saturated = True
+        if operation_name != "Dzielenie":
+            # Spytanie o saturację
+            reply = QMessageBox.question(self,
+                                         "Wybranie saturacji",
+                                         "Czy chcesz zastosować wysycenie?\n\n",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+            is_saturated = (reply == QMessageBox.StandardButton.Yes)
+
+        # Wykonanie operacji
+        self.cv_image = scalar_operation(self.cv_image, value, operations_map[operation_name], is_saturated)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()
 
     @staticmethod
     def on_absolute_difference_triggered():

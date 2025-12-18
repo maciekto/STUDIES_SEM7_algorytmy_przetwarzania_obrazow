@@ -453,6 +453,7 @@ def check_compatibility(img1: np.ndarray, img2: np.ndarray) -> bool:
     return img1.shape == img2.shape
 
 
+# Dla Lab2 - zadanie 1
 def multi_image_addition(images: list[np.ndarray], saturate: bool = True):
     """
     Algorytmy:
@@ -508,3 +509,46 @@ def multi_image_addition(images: list[np.ndarray], saturate: bool = True):
     result_image_uint8 = result_image_float.astype(np.uint8)
 
     return result_image_uint8
+
+
+# Dla Lab2 - zadanie 1
+def scalar_operation(image_data: np.ndarray, value: int, operation: str, saturate: bool):
+    """
+    Operacje skalarne, czyli wykonanie operacji matematycznych na jasności obrazu np. dodawanie, odejmowanie, dzielenie,
+    ale z użyciem liczby
+
+    :param image_data: przekazany obraz
+    :param value: wartość, o którą należy zmienić obraz
+    :param operation: 'add', 'multiply', 'division'
+    :param saturate: True / False
+    :return: zwraca nowy obraz
+    """
+    # Przepisanie obrazu ze zmianą typu danych dla dokładniejszych obliczeń matematycznych
+    image_float = image_data.astype(np.float32)
+    result_image = None
+
+    if image_data is None:
+        return None
+
+    if operation == 'addition':
+        if saturate:
+            # Tutaj dodaję a na końcu i tak klipuję każdą operację
+            result_image = image_float + value
+        else:
+            result_image = (image_float * 0.5) + (value * 0.5)
+
+    elif operation == 'multiplication':
+        if saturate:
+            result_image = image_float * value
+        else:
+            # Obraz wynikowy się nie zmieni, ale to dodaję ze względu na uwagę
+            result_image = (image_float / value) * value
+    elif operation == 'division':
+        if value == 0:
+            return image_float  # Nie można dzielić przez 0
+
+        # Nie potrzeba if-a dla saturacji, ponieważ wartości podczas dzielenia nigdy nie przekroczy 255
+        result_image = image_float / value
+
+    result_image = np.clip(result_image, 0, 255)
+    return result_image.astype(np.uint8)
