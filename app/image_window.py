@@ -1,6 +1,6 @@
 # image_window.py
 import numpy as np
-from PyQt6.QtGui import QResizeEvent
+from PyQt6.QtGui import QResizeEvent, QCloseEvent
 from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInputDialog, QMessageBox
 from PyQt6.QtCore import Qt, QSize
 import cv2
@@ -44,6 +44,15 @@ class ImageWindow(QMainWindow):
 
             # Dopasowanie rozmiaru okna do zdjęcia z marginesami 20 px, maksymalna wielkość okna to 800x600px
             self.resize(min(self.pixmap.width() + 20, 800), min(self.pixmap.height() + 20, 600))
+
+    def closeEvent(self, event: QCloseEvent):
+        # Funkcja dla main_app do usuwania okna z listy
+        if self.main_app_window is not None:
+            if self in self.main_app_window.open_windows:
+                self.main_app_window.open_windows.remove(self)
+
+        # Pozwalam na zamknięcie okna
+        event.accept()
 
     def create_menus(self):
         menu_bar = self.menuBar()
