@@ -1,6 +1,7 @@
 # algorithms.py
 import math
 
+import cv2
 import numpy as np
 
 
@@ -552,3 +553,28 @@ def scalar_operation(image_data: np.ndarray, value: int, operation: str, saturat
 
     result_image = np.clip(result_image, 0, 255)
     return result_image.astype(np.uint8)
+
+
+# Dla Lab2 - zadanie 1
+def absolute_difference(image1: np.ndarray, image2: np.ndarray):
+    """
+    Różnica bezwzględna dwóch zdjęć
+    :param image1: zdjęcie 1
+    :param image2: zdjęcie 2
+    :return: zwraca gotowe zdjęcie po operacji
+    """
+    if not check_compatibility(image1, image2):
+        raise ValueError("Obrazy muszą mieć ten sam rozmiar i razem być kolorowe lub szaroodcieniowe")
+
+    # Zamieniam, aby mieć dostęp do liczb ujemnych
+    image1_float = image1.astype(np.float32)
+    image2_float = image2.astype(np.float32)
+
+    # Odejmuję obrazy od siebie
+    diff = image1_float - image2_float
+
+    # Z wartości ujemnych robię dodatnie
+    absolute_diff = np.abs(diff)
+
+    # Zwracam gotowy obraz z odpowiednią konwersją
+    return absolute_diff.astype(np.uint8)

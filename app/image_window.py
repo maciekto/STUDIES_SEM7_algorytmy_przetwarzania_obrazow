@@ -10,7 +10,7 @@ from image_selection_dialog import ImageSelectionDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
-    point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation
+    point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference
 
 
 class ImageWindow(QMainWindow):
@@ -433,6 +433,23 @@ class ImageWindow(QMainWindow):
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
         self.show_image()
 
-    @staticmethod
-    def on_absolute_difference_triggered():
-        print("On absolute differenct")
+    def on_absolute_difference_triggered(self):
+        other_images = self.select_additional_images()
+
+        # Jeżeli anulowano nic nie zwraca
+        if not other_images:
+            return
+
+        if len(other_images) > 1:
+            QMessageBox.warning(self, "Uwaga", "Do różnicy bezwzględnej wybrano więcej niż jeden obraz. "
+                                               "Wybieram pierwszy zaznaczony.")
+
+        other_images = other_images[0]
+
+        try:
+            self.cv_image = absolute_difference(self.cv_image, other_images)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd rozmiaru. Wybrałeś zdjęcia o różnej wielkości lub kolorowy i"
+                                       "monochromatyczny", str(e))
