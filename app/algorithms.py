@@ -1,7 +1,6 @@
 # algorithms.py
 import math
 
-import cv2
 import numpy as np
 
 
@@ -449,6 +448,8 @@ def point_keep_gray_threshold(image_data: np.ndarray, threshold: int):
 def check_compatibility(img1: np.ndarray, img2: np.ndarray) -> bool:
     """Sprawdza, czy obrazy mają ten sam rozmiar i liczbę kanałów"""
 
+    if img1 is None or img2 is None:
+        return False
     # .shape zwraca krotkę (wysokość, szerokość, kanały)
     # operator porównania porównuje krotki między sobą (ich wartości)
     return img1.shape == img2.shape
@@ -578,3 +579,62 @@ def absolute_difference(image1: np.ndarray, image2: np.ndarray):
 
     # Zwracam gotowy obraz z odpowiednią konwersją
     return absolute_diff.astype(np.uint8)
+
+
+# Dla Lab2 - zadanie 2
+def logical_operation(image1: np.ndarray, image2: np.ndarray | None, operation: str):
+    """
+    Operacje logiczne na bitach (per pixel): NOT, AND, OR, XOR
+    :param image1: zdjęcie 1
+    :param image2: zdjęcie 2
+    :param operation: wybrana operacja przez użytkownika
+    :return: zwraca gotowy obraz
+    """
+
+    # Operacja negacji
+    if operation == 'not':
+        # np.bitwise: odwraca bity
+        return np.bitwise_not(image1)
+
+    # Walidacja dla operacji z dwoma zdjęciami
+    if image2 is None:
+        raise ValueError("Ta operacja wymaga drugiego obrazu!")
+
+    if not check_compatibility(image1, image2):
+        raise ValueError(f"Niezgodność rozmiarów lub typów obrazów! Obraz 1: {image1.shape}, Obraz 2: {image2.shape}")
+
+    if operation == 'and':
+        # Koniunkcja bitowa, dla maskowania na przykład
+        return np.bitwise_and(image1, image2)
+
+    elif operation == 'or':
+        # Alternatywan bitowa: łączenie dwóch obrazów w jeden
+        return np.bitwise_or(image1, image2)
+
+    elif operation == 'xor':
+        # Alternatywa z wykluczeniem, wynik jest 1 tylko, gdy bity wejściowe są od siebie różne
+        # Używane do wykrycia zmian między obrazami
+        return np.bitwise_xor(image1, image2)
+
+    else:
+        raise ValueError(f"Nieznana operacja logiczna: {operation}")
+
+
+def convert_to_binary_mask(image: np.ndarray) -> np.ndarray:
+    """
+    Konwerscja maski logicznej (0-1) na obraz 8-bitowy (0-255)
+    Zamieniam obraz 8-bitowy na obraz binarny, aby wykonać na nim operację.
+    :param image:
+    :return:
+    """
+    return np.where(image > 0, 1, 0).astype(np.uint8)
+
+
+def convert_to_8bit_mask(image: np.ndarray) -> np.ndarray:
+    """
+    Konwerscja maski logicznej (0-1) na obraz 8-bitowy (0-255)
+    Zamieniam obraz binarny, na którym wykonałem operację na obraz 8-bitowy do wyświetlenia na ekranie
+    :param image:
+    :return:
+    """
+    return np.where(image > 0, 255, 0).astype(np.uint8)

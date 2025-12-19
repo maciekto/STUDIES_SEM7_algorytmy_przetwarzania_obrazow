@@ -1,3 +1,4 @@
+# mpl_canvas.py
 # Importy dla PyQt
 from PyQt6.QtWidgets import QSizePolicy
 

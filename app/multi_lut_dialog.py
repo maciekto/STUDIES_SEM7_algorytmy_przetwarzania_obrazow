@@ -1,3 +1,4 @@
+# multi_lut_dialog.py
 import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QWidget, QVBoxLayout, QLabel, QTableWidget, QHeaderView, \

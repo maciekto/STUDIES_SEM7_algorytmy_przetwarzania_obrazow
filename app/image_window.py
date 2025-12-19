@@ -10,7 +10,8 @@ from image_selection_dialog import ImageSelectionDialog
 from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
-    point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference
+    point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
+    logical_operation, convert_to_binary_mask, convert_to_8bit_mask
 
 
 class ImageWindow(QMainWindow):
@@ -110,6 +111,7 @@ class ImageWindow(QMainWindow):
         # Menu dla lab-ów 2
         lab2_menu = menu_bar.addMenu("Lab 2")
 
+        # Lab 2 - Zadanie 1
         lab2_zad1_menu = lab2_menu.addMenu("Zad 1")
 
         ui_multi_image_addition = lab2_zad1_menu.addAction("Dodawanie obrazów")
@@ -121,8 +123,17 @@ class ImageWindow(QMainWindow):
         ui_absolute_difference = lab2_zad1_menu.addAction("Różnica bezwzględna")
         ui_absolute_difference.triggered.connect(lambda: self.on_absolute_difference_triggered())
 
-        ui_select_windows_test = lab2_menu.addAction("Select images")
-        ui_select_windows_test.triggered.connect(self.select_additional_images)
+        # Lab 2 - Zadanie 2
+        lab2_zad2_menu = lab2_menu.addMenu("Zad 2")
+
+        ui_logical_operation = lab2_zad2_menu.addAction("Operacje logiczne")
+        ui_logical_operation.triggered.connect(lambda: self.on_logical_operation_triggered())
+
+        ui_convert_to_binary = lab2_zad2_menu.addAction("Konwersja na obraz binarny")
+        ui_convert_to_binary.triggered.connect(lambda: self.on_convert_to_binary_triggered())
+
+        ui_convert_to_8bit = lab2_zad2_menu.addAction("Konwersja z obrazu binarnego na 8bit")
+        ui_convert_to_8bit.triggered.connect(lambda: self.on_convert_to_8bit_triggered())
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -352,6 +363,8 @@ class ImageWindow(QMainWindow):
     # MENU LAB2 OPTIONS METHODS
     # ------------------------------
 
+    # Zadanie 1
+
     def select_additional_images(self):
 
         # Sprawdzam, czy main_app na pewno istnieje
@@ -453,3 +466,87 @@ class ImageWindow(QMainWindow):
         except ValueError as e:
             QMessageBox.critical(self, "Błąd rozmiaru. Wybrałeś zdjęcia o różnej wielkości lub kolorowy i"
                                        "monochromatyczny", str(e))
+
+    # Zadanie 2
+
+    def on_logical_operation_triggered(self):
+
+        # Wybranie operacji logiczne przez użytkownika
+        operations = ["NOT (Negacja)", "AND (Koniunkcja)", "OR (Alternatywa)", "XOR"]
+        operation_name, ok = QInputDialog.getItem(self,
+                                                  "Operacje Logiczne",
+                                                  "Wybierz operację logiczną",
+                                                  operations,
+                                                  0,
+                                                  False)
+
+        if not ok:
+            return  # Użytkownik anulował wybór operacji
+
+        operations_map = {
+            "NOT (Negacja)": "not",
+            "AND (Koniunkcja)": "and",
+            "OR (Alternatywa)": "or",
+            "XOR": "xor"
+        }
+        selected_operation = operations_map[operation_name]
+
+        # Wymuszenie konwersji na szary
+        if not self.ensure_grayscale():
+            return
+
+        # Operacja not (nie potrzeba zaznaczyć drugiego zdjęcia)
+        if selected_operation == 'not':
+            try:
+                self.cv_image = logical_operation(self.cv_image, image2=None, operation='not')
+                self.pixmap = convert_cv_to_pixmap(self.cv_image)
+                self.show_image()
+            except ValueError as e:
+                QMessageBox.critical(self, "Błąd", str(e))
+            return
+
+        # Jeżeli jest inne niż not, daję opcję wyboru drugiego zdjęcia
+        other_images: list[np.ndarray] = self.select_additional_images()
+
+        if not other_images:
+            return  # Anulowano wybór drugiego zdjęcia
+
+        if len(other_images) > 1:
+            QMessageBox.warning(self, "Ostrzeżenie",
+                                "Wybrano więcej niż 1 zdjęcie do operacji. Zostanie użyte pierwsze w kolejności")
+
+        other_image: np.ndarray = other_images[0]
+
+        # Konwersja drugiego obrazu na szary, jeżeli jest kolorowy
+        if len(other_image.shape) == 3:
+            other_image = cv2.cvtColor(other_image, cv2.COLOR_BGR2GRAY)
+
+        try:
+            self.cv_image = logical_operation(self.cv_image, other_image, selected_operation)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd operacji", str(e))
+
+    def on_convert_to_binary_triggered(self):
+        # Jeżeli nie zostałą dokonana konwersja na szaroodcieniowy
+        if not self.ensure_grayscale():
+            return
+
+        QMessageBox.information(self,
+                                "Informacja",
+                                "Konwersja na zakres 0-1\n"
+                                "Obraz stanie się wizualnie czarny")
+
+        self.cv_image = convert_to_binary_mask(self.cv_image)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()
+
+    def on_convert_to_8bit_triggered(self):
+        # Jeżeli nie zostałą dokonana konwersja na szaroodcieniowy
+        if not self.ensure_grayscale():
+            return
+
+        self.cv_image = convert_to_8bit_mask(self.cv_image)
+        self.pixmap = convert_cv_to_pixmap(self.cv_image)
+        self.show_image()

@@ -1,3 +1,4 @@
+# histogram_plot_dialog.py
 # Importy dla PyQt
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QPushButton, QSizePolicy
 from PyQt6.QtCore import Qt
