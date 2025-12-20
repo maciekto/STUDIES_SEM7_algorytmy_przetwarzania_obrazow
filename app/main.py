@@ -1,6 +1,8 @@
 # main.py
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QSizePolicy
 from image_window import ImageWindow
 from utils import smart_image_read
 
@@ -22,6 +24,23 @@ class MainWindow(QMainWindow):
         # Prosty przycisk do otwierania
         layout = QVBoxLayout()                              # QVBoxLayout dziecko QBBoxLayout-układa od góry do dołu
         btn_open = QPushButton("Wczytaj nowy obraz")        # Zdefiniowanie instancji przycisku
+        btn_open.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        btn_open.setStyleSheet("""
+            QPushButton {
+                background-color: #333333;  /* Jasnoszary kolor tła */
+                border-radius: 15px;        /* Promień zaokrąglenia */
+                border: 1px solid #aaaaaa;  /* Opcjonalne: cienka ramka */
+                font-size: 16px;            /* Opcjonalne: większy tekst */
+            }
+            QPushButton:hover {
+                background-color: #444444;  /* Efekt po najechaniu myszką */
+            }
+            QPushButton:pressed {
+                background-color: #333333;  /* Efekt po kliknięciu */
+            }
+        
+        """)
+        btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_open.clicked.connect(self.open_image_dialog)    # Utworzenie sygnału dla tego przycisku, wywołuje metodę
 
         layout.addWidget(btn_open)  # Dodanie przycisku do layoutu

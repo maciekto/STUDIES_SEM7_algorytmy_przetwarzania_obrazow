@@ -86,27 +86,31 @@ class ImageWindow(QMainWindow):
         ui_action_hist = lab1_menu.addAction("Zad 2 i 3 - Pokaż Histogram i tablicę LUT")
         ui_action_hist.triggered.connect(lambda: self.on_action_histogram_triggered(self.cv_image))
 
-        ui_linear_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe")
+        lab1_zad3_menu = lab1_menu.addMenu("Zad 3")
+
+        ui_linear_streching = lab1_zad3_menu.addAction("Rozciągnięcie liniowe")
         ui_linear_streching.triggered.connect(lambda: self.on_action_linear_streching_triggered(self.cv_image))
 
-        ui_linear_saturation_streching = lab1_menu.addAction("Zad 3 - rozciągnięcie liniowe z saturacją")
+        ui_linear_saturation_streching = lab1_zad3_menu.addAction("Rozciągnięcie liniowe z saturacją")
         (ui_linear_saturation_streching.triggered.
          connect(lambda: self.on_action_linear_saturation_streching_triggered(self.cv_image)))
 
-        ui_histogram_equalization = lab1_menu.addAction("Zad 3 - equalizacja histogramu")
+        ui_histogram_equalization = lab1_zad3_menu.addAction("Equalizacja histogramu")
         (ui_histogram_equalization.triggered.
          connect(lambda: self.on_histogram_equalization_triggered(self.cv_image)))
 
-        ui_point_negation = lab1_menu.addAction("Zad 4 - Negacja")
+        lab1_zad4_menu = lab1_menu.addMenu("Zad 4")
+
+        ui_point_negation = lab1_zad4_menu.addAction("Negacja")
         ui_point_negation.triggered.connect(lambda: self.on_point_negation_triggered(self.cv_image))
 
-        ui_point_posterize = lab1_menu.addAction("Zad 4 - Redukcja poziomów szarości (posteryzacja)")
+        ui_point_posterize = lab1_zad4_menu.addAction("Redukcja poziomów szarości (posteryzacja)")
         ui_point_posterize.triggered.connect(lambda: self.on_point_posterize_triggered(self.cv_image))
 
-        ui_point_threshold = lab1_menu.addAction("Zad 4 - Progowanie binarne")
+        ui_point_threshold = lab1_zad4_menu.addAction("Progowanie binarne")
         ui_point_threshold.triggered.connect(lambda: self.on_point_binary_threshold_triggered())
 
-        ui_keep_gray_threshold = lab1_menu.addAction("Zad 4 - Progowanie z zachowaniem szarości")
+        ui_keep_gray_threshold = lab1_zad4_menu.addAction("Progowanie z zachowaniem szarości")
         ui_keep_gray_threshold.triggered.connect(lambda: self.on_keep_gray_threshold_triggered())
 
         # Menu dla lab-ów 2
