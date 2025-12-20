@@ -12,7 +12,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
-    apply_linear_filter, apply_laplacian_sharpening, apply_median_filter
+    apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection
 
 
 class ImageWindow(QMainWindow):
@@ -156,6 +156,12 @@ class ImageWindow(QMainWindow):
 
         ui_median_filter = lab2_zad4_menu.addAction("Mediana")
         ui_median_filter.triggered.connect(lambda: self.on_median_filter_triggered())
+
+        # Lab 2 - Zadanie 5
+        lab2_zad4_menu = lab2_menu.addMenu("Zad 5")
+
+        ui_canny_edge_detection = lab2_zad4_menu.addAction("Wykrywanie krawędzi metodą Canny'ego")
+        ui_canny_edge_detection.triggered.connect(lambda: self.on_canny_edge_detection_triggered())
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -705,6 +711,38 @@ class ImageWindow(QMainWindow):
                                                 kernel_size=kernel_size,
                                                 border_type=border_type,
                                                 border_value=border_value)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    # Zadanie 5
+    def on_canny_edge_detection_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        # Pobranie od użytkownika dolnej wartości progowej
+        threshold1, ok = QInputDialog.getInt(self,
+                                             "Wybieranie wartości progowej 1",
+                                             "Wybierz pierwszą wartość progową", 50, 0, 255)
+        if not ok:
+            return
+
+        # Pobranie od użytkownika górnej wartości progowej
+        threshold2, ok2 = QInputDialog.getInt(self,
+                                              "Wybieranie wartości progowej 2",
+                                              "Wybierz drugą wartość progową", 150, 0, 255)
+        if not ok2:
+            return
+
+        # Jeżeli dolna wartość jest większa to dokonuję zamiany
+        if threshold1 > threshold2:
+            threshold2 = threshold1
+            threshold1 = threshold2
+            # threshold1, threshold2 = threshold2, threshold1 - można też tak w python
+
+        try:
+            self.cv_image = apply_canny_edge_detection(self.cv_image, threshold1, threshold2)
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
         except ValueError as e:

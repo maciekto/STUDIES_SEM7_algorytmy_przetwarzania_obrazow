@@ -927,3 +927,26 @@ def apply_median_filter(image: np.ndarray, kernel_size: int, border_type, border
         padded_result_image = cv2.medianBlur(padded_image, kernel_size)
 
         return padded_result_image[padding:-padding, padding:-padding].copy()
+
+
+# Dla Lab 2 - zadanie 5
+def apply_canny_edge_detection(image: np.ndarray, threshold1: int, threshold2: int):
+    """
+    Jak działą?
+
+    1. Rozmywa obraz, aby nie było pojedyńczych wyróżniających się pixeli
+    2. Szuka gradientów za pomocą operatora Sobela
+    3. Teraz sprawdza pixele w poprzek krawędzi na gradiencie i zostawia największą wartość, a inne zeruje
+    4. Progowanie dzieli na 3 obszary.
+        - obszar powyżej progu górnego: na pewno to jest krawędź, zostaje taka, jaka jest
+        - obszar poniżej progu dolnego: to jest szum i jest zerowany (tło)
+        - obszar pomiędzy: jeżeli się styka z jakąś linnią, to jest kontynuacją linni i zostaje, a jeżeli jest
+        samo sobie pozostawione to jest zerowane
+
+    Detekcja krawędzi metodą Canny'ego
+    :param image: obraz wejściowy (grayscale)
+    :param threshold1: górny decyduje o tym, jakie krawędzie na pewno nimi są
+    :param threshold2: wykrywa co ma nie być krawędzią w szumie
+    :return: Obraz binarny z krawędziami
+    """
+    return cv2.Canny(image, threshold1, threshold2)
