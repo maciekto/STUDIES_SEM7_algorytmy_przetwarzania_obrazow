@@ -888,3 +888,42 @@ def apply_laplacian_sharpening(image: np.ndarray, kernel: np.ndarray, border_typ
         else:
             result_padded_image = image_float + edges
         return np.clip(result_padded_image, 0, 255).astype(np.uint8)
+
+
+# Dla Lab 2 - zadanie 4
+def apply_median_filter(image: np.ndarray, kernel_size: int, border_type, border_value: int):
+    """
+    Funkcja wykonująca operację statystyczną na obracie dla zadanej wielkości macierzy z uzupełnieniem ramek.
+    :param image:
+    :param kernel_size:
+    :param border_type:
+    :param border_value:
+    :return:
+    """
+    padding = kernel_size // 2
+
+    # Wypełnienie ramki konkretną wartością
+    if border_type == 9999:
+        result_image = cv2.medianBlur(image, kernel_size)
+
+        # Zrobienie obramowania
+        if padding > 0:
+            result_image[:padding, :] = border_value    # góra
+            result_image[-padding:, :] = border_value   # dół
+            result_image[:, :padding] = border_value    # lewo
+            result_image[:, -padding:] = border_value   # prawo
+
+        return result_image
+
+    # Dla BORDER_CONSTANT i BORDER_REFLECT
+    else:
+        # Zrobienie obramowania
+        padded_image = cv2.copyMakeBorder(
+            image,
+            padding, padding, padding, padding,
+            borderType=border_type,
+            value=border_value
+        )
+        padded_result_image = cv2.medianBlur(padded_image, kernel_size)
+
+        return padded_result_image[padding:-padding, padding:-padding].copy()

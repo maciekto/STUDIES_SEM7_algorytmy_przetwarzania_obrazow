@@ -12,7 +12,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
-    apply_linear_filter, apply_laplacian_sharpening
+    apply_linear_filter, apply_laplacian_sharpening, apply_median_filter
 
 
 class ImageWindow(QMainWindow):
@@ -150,6 +150,12 @@ class ImageWindow(QMainWindow):
 
         ui_sobel = lab2_zad3_menu.addAction("Detekcja krawędzi - Sobel")
         ui_sobel.triggered.connect(lambda: self.on_filter_category_triggered("Detekcja krawędzi - Sobel"))
+
+        # Lab 2 - Zadanie 4
+        lab2_zad4_menu = lab2_menu.addMenu("Zad 4")
+
+        ui_median_filter = lab2_zad4_menu.addAction("Mediana")
+        ui_median_filter.triggered.connect(lambda: self.on_median_filter_triggered())
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -643,3 +649,63 @@ class ImageWindow(QMainWindow):
             QMessageBox.critical(self, "Błąd operacji", str(e))
         except Exception as e:
             QMessageBox.critical(self, "Nieoczekiwany błąd", str(e))
+
+    # Zadanie 4
+    def on_median_filter_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        # Zdefiniowanie wielkości kernelów dla operacji mediany
+        sizes = ["3x3", "5x5", "7x7", "9x9"]
+        size, ok = QInputDialog.getItem(self,
+                                        "Mediana",
+                                        "Wybierz wielkość", sizes, 0, False)
+        if not ok:
+            return
+
+        kernel_size = int(size[0])
+
+        # Wybranie typu obramowania
+        border_options = ["BORDER_REFLECT (Lustrzane)",
+                          "BORDER_CONSTANT (Stała po za obrazem)",
+                          "BORDER_OVERWRITE (Stała na krawędzi obrazu)"]
+        border_choice, ok2 = QInputDialog.getItem(self,
+                                                  "Wybieranie typu obramowania",
+                                                  "Wybierz typ obramowania",
+                                                  border_options, 0, False)
+        # Domyślna wartość wypełnienia ramki
+        border_value = 0
+
+        if not ok2:
+            return
+
+        if "REFLECT" in border_choice:
+            border_type = cv2.BORDER_REFLECT
+        elif "CONSTANT" in border_choice:
+            border_type = cv2.BORDER_CONSTANT
+            value, ok3 = QInputDialog.getInt(self,
+                                             "Wartość n",
+                                             "Wybierz wartość n do obliczenia ramki z marginesu", border_value, 0, 255)
+            if not ok3:
+                return
+            border_value = value
+
+        else:  # "BORDER_OVERWRITE" is in border_choice
+            border_type = 9999  # wartość ustalona dla rozróżnienia
+
+            value, ok3 = QInputDialog.getInt(self,
+                                             "Wartość ramki",
+                                             "Wybierz stałą jasność jaką chcesz wypełnić ramkę", border_value, 0, 255)
+            if not ok3:
+                return
+            border_value = value
+
+        try:
+            self.cv_image = apply_median_filter(image=self.cv_image,
+                                                kernel_size=kernel_size,
+                                                border_type=border_type,
+                                                border_value=border_value)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd", str(e))
