@@ -55,14 +55,14 @@ class HistogramPlotDialog(QDialog):
         QPushButton {
             border-radius: 8px;
             padding: 4px 10px;
-            background-color: #666666;
+            background-color: #999999;
             border: 1px solid #a0a0a0;
         }
         QPushButton:hover {
-            background-color: #777777;
+            background-color: #aaaaaa;
         }
         QPushButton:pressed {
-            background-color: #666666;
+            background-color: #999999;
         }
         """)
         lut_button.clicked.connect(lambda: self.show_lut_tables(lut_data))

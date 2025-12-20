@@ -27,16 +27,16 @@ class MainWindow(QMainWindow):
         btn_open.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         btn_open.setStyleSheet("""
             QPushButton {
-                background-color: #666666;  /* Jasnoszary kolor tła */
+                background-color: #999999;  /* Jasnoszary kolor tła */
                 border-radius: 15px;        /* Promień zaokrąglenia */
                 border: 1px solid #aaaaaa;  /* Opcjonalne: cienka ramka */
                 font-size: 16px;            /* Opcjonalne: większy tekst */
             }
             QPushButton:hover {
-                background-color: #777777;  /* Efekt po najechaniu myszką */
+                background-color: #aaaaaa;  /* Efekt po najechaniu myszką */
             }
             QPushButton:pressed {
-                background-color: #666666;  /* Efekt po kliknięciu */
+                background-color: #999999;  /* Efekt po kliknięciu */
             }
         
         """)
