@@ -11,7 +11,8 @@ from utils import convert_cv_to_pixmap
 from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
-    logical_operation, convert_to_binary_mask, convert_to_8bit_mask
+    logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
+    apply_linear_filter, apply_laplacian_sharpening
 
 
 class ImageWindow(QMainWindow):
@@ -134,6 +135,21 @@ class ImageWindow(QMainWindow):
 
         ui_convert_to_8bit = lab2_zad2_menu.addAction("Konwersja z obrazu binarnego na 8bit")
         ui_convert_to_8bit.triggered.connect(lambda: self.on_convert_to_8bit_triggered())
+
+        # Lab 2 - Zadanie 3
+        lab2_zad3_menu = lab2_menu.addMenu("Zad 3")
+
+        ui_smoothing = lab2_zad3_menu.addAction("Wygładzanie")
+        ui_smoothing.triggered.connect(lambda: self.on_filter_category_triggered("Wygładzanie"))
+
+        ui_sharpening = lab2_zad3_menu.addAction("Wyostrzanie")
+        ui_sharpening.triggered.connect(lambda: self.on_filter_category_triggered("Wyostrzanie"))
+
+        ui_prewitt = lab2_zad3_menu.addAction("Detekcja krawędzi - Prewitt")
+        ui_prewitt.triggered.connect(lambda: self.on_filter_category_triggered("Detekcja Krawędzi - Prewitt"))
+
+        ui_sobel = lab2_zad3_menu.addAction("Detekcja krawędzi - Sobel")
+        ui_sobel.triggered.connect(lambda: self.on_filter_category_triggered("Detekcja krawędzi - Sobel"))
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -550,3 +566,80 @@ class ImageWindow(QMainWindow):
         self.cv_image = convert_to_8bit_mask(self.cv_image)
         self.pixmap = convert_cv_to_pixmap(self.cv_image)
         self.show_image()
+
+    # Zadanie 3
+    def on_filter_category_triggered(self, category_name: str) -> None:
+        """
+        Funkcja obsługująca wybrany filtr przez użytkownika w menu
+        :param category_name: opcja wybrana przez użytkownika
+        :return: None
+        """
+
+        # Powiadomienie użytkownika, że aby wykonać operację obraz musi się stać czarno-biały
+        if not self.ensure_grayscale():
+            return
+
+        # Wybranie maski przez użytkownika
+        if category_name not in KERNELS:
+            QMessageBox.critical(self, "Błąd", f"Nie znaleziono kategorii: {category_name}")
+            return
+        masks_dictionary = KERNELS[category_name]
+        mask_names = list(masks_dictionary.keys())
+        mask_name, ok = QInputDialog.getItem(self,
+                                             category_name,
+                                             "Wybierz maskę:",
+                                             mask_names, 0, False)
+        if not ok:
+            return
+
+        # Wybrana maska przez użytkownika
+        kernel = masks_dictionary[mask_name]
+
+        # Wybranie typu obramowania
+        border_options = ["BORDER_REFLECT (Lustrzane)",
+                          "BORDER_CONSTANT (Stała po za obrazem)",
+                          "BORDER_OVERWRITE (Stała na krawędzi obrazu)"]
+        border_choice, ok2 = QInputDialog.getItem(self,
+                                                  "Wybieranie typu obramowania",
+                                                  "Wybierz typ obramowania",
+                                                  border_options, 0, False)
+        # Domyślna wartość wypełnienia ramki
+        border_value = 0
+
+        if not ok2:
+            return
+
+        if "REFLECT" in border_choice:
+            border_type = cv2.BORDER_REFLECT
+        elif "CONSTANT" in border_choice:
+            border_type = cv2.BORDER_CONSTANT
+            value, ok3 = QInputDialog.getInt(self,
+                                             "Wartość n",
+                                             "Wybierz wartość n do obliczenia ramki z marginesu", border_value, 0, 255)
+            if not ok3:
+                return
+            border_value = value
+
+        else:  # "BORDER_OVERWRITE" is in border_choice
+            border_type = 9999  # wartość ustalona dla rozróżnienia
+
+            value, ok3 = QInputDialog.getInt(self,
+                                             "Wartość ramki",
+                                             "Wybierz stałą jasność jaką chcesz wypełnić ramkę", border_value, 0, 255)
+            if not ok3:
+                return
+            border_value = value
+
+        try:
+            if category_name == "Wyostrzanie":
+                self.cv_image = apply_laplacian_sharpening(self.cv_image, kernel, border_type, border_value)
+
+            else:
+                self.cv_image = apply_linear_filter(self.cv_image, kernel, border_type, border_value)
+
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except ValueError as e:
+            QMessageBox.critical(self, "Błąd operacji", str(e))
+        except Exception as e:
+            QMessageBox.critical(self, "Nieoczekiwany błąd", str(e))

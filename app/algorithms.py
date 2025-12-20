@@ -1,6 +1,7 @@
 # algorithms.py
 import math
 
+import cv2
 import numpy as np
 
 
@@ -482,7 +483,7 @@ def multi_image_addition(images: list[np.ndarray], saturate: bool = True):
     for index, image in enumerate(images[1:]):
         if not check_compatibility(reference_image, image):
             raise ValueError(f"Niezgodność rozmiarów! Pierwszy przekazany obraz ma {reference_image.shape}. Przekazany "
-                             f"{index+2} obraz ma wymiar {image.shape}")
+                             f"{index + 2} obraz ma wymiar {image.shape}")
 
     # Konwertuję na float dla precyzji obliczeń
     result_image_float = np.zeros_like(reference_image, dtype=np.float32)
@@ -638,3 +639,252 @@ def convert_to_8bit_mask(image: np.ndarray) -> np.ndarray:
     :return:
     """
     return np.where(image > 0, 255, 0).astype(np.uint8)
+
+
+# Dla Lab2 - zadanie 3
+KERNELS = {
+    # Maski dla wygładzania
+    "Wygładzanie": {
+        "Uśrednienie 3x3": np.array([
+            [1, 1, 1],
+            [1, 1, 1],
+            [1, 1, 1]
+        ], dtype=np.float32) / 9.0,  # Każda liczba w macierzy będzie podzielona przez 9
+        "Uśrednienie (5x5)": np.array([
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1]
+        ], dtype=np.float32) / 25.0,  # Każda liczba w macierzy będzie podzielona przez 25
+        "Maska z wagami (3x3)": np.array([
+            [1, 2, 1],
+            [2, 4, 2],
+            [1, 2, 1]
+        ], dtype=np.float32) / 16.0,
+        # To samo co wyżej
+        "Gauss (3x3)": np.array([
+            [1, 2, 1],
+            [2, 4, 2],
+            [1, 2, 1]
+        ], dtype=np.float32) / 16.0,
+        "Gauss (5x5)": np.array([
+            [1, 4, 7, 4, 1],
+            [4, 16, 26, 16, 4],
+            [7, 26, 41, 26, 7],
+            [4, 16, 26, 16, 4],
+            [1, 4, 7, 4, 1]
+        ], dtype=np.float32) / 273.0,
+    },
+
+    # Maski dla wyostrzania
+    "Wyostrzanie": {
+        # Wyostrzenie lekki
+        "Maska 1": np.array([
+            [0, 1, 0],
+            [1, -4, 1],
+            [0, 1, 0]
+        ], dtype=np.float32),
+        # Wyostrzenie mocne
+        "Maska 2": np.array([
+            [1, 1, 1],
+            [1, -8, 1],
+            [1, 1, 1]
+        ], dtype=np.float32),
+        # To samo co pierwsze tylko zmieniony środek dla łatwości matematycznej
+        "Maska 3": np.array([
+            [0, -1, 0],
+            [-1, 4, -1],
+            [0, -1, 0]
+        ], dtype=np.float32),
+    },
+
+    "Detekcja Krawędzi - Prewitt": {
+        "N": np.array([
+            [1, 1, 1],
+            [0, 0, 0],
+            [-1, -1, -1]
+        ], dtype=np.float32),
+        "NE": np.array([
+            [0, 1, 1],
+            [-1, 0, 1],
+            [-1, -1, 0]
+        ], dtype=np.float32),
+        "E": np.array([
+            [-1, 0, 1],
+            [-1, 0, 1],
+            [-1, 0, 1]
+        ], dtype=np.float32),
+        "SE": np.array([
+            [-1, -1, 0],
+            [-1, 0, 1],
+            [0, 1, 1]
+        ], dtype=np.float32),
+        "S": np.array([
+            [-1, -1, -1],
+            [0, 0, 0],
+            [1, 1, 1]
+        ], dtype=np.float32),
+        "SW": np.array([
+            [0, -1, -1],
+            [1, 0, -1],
+            [1, 1, 0]
+        ], dtype=np.float32),
+        "W": np.array([
+            [1, 0, -1],
+            [1, 0, -1],
+            [1, 0, -1]
+        ], dtype=np.float32),
+        "NW": np.array([
+            [1, 1, 0],
+            [1, 0, -1],
+            [0, -1, -1]
+        ], dtype=np.float32),
+    },
+
+    "Detekcja krawędzi - Sobel": {
+        "Sobel X": np.array([
+            [-1, 0, 1],
+            [-2, 0, 2],
+            [-1, 0, 1]
+        ], dtype=np.float32),
+        "Sobel Y": np.array([
+            [-1, -2, -1],
+            [0, 0, 0],
+            [1, 2, 1]
+        ], dtype=np.float32),
+    }
+}
+
+
+def apply_linear_filter(image: np.ndarray, kernel: np.ndarray, border_type: int, border_value: int):
+    """
+    Funkcja nagkładająca wykonująca operację na macierzy za pomocą przekazanej macierzy
+    :param image: przekazane zdjęcie
+    :param kernel: wybrana macierz do wykonania operacji
+    :param border_type: typ uzupełnienia krawędzi zdjęcia
+    :param border_value określa, z jaką wartością ma być wypełniona ramka lub jaką wartość marginesów ma brać
+    :return: zwraca nowe zdjęcie
+    """
+    padding_height = kernel.shape[0] // 2  # dzielenie całkowite przez 2
+    padding_width = kernel.shape[1] // 2  # dzielenie całkowite przez 2
+
+    # Wypełnienie ramki stałą wartością n.
+    # 9999 dla BORDER_OVERWRITE
+    if border_type == 9999:
+        result_image = cv2.filter2D(src=image, ddepth=-1, kernel=kernel, borderType=cv2.BORDER_REPLICATE)
+
+        # Nadpisanie ramki
+        if padding_height > 0:
+            # Nadpisuję do x np. 1 i wszystkie kolumny
+            result_image[:padding_height, :] = border_value
+            # Nadpisuję od x np. -1 - czyli od przedostatniego elementu do końca i wszystkie kolumny
+            result_image[-padding_height:, :] = border_value
+        if padding_width > 0:
+            # Wszystkie wiersze i do np. 1 kolumny y
+            result_image[:, :padding_width] = border_value
+            # Wszsytkie wiersze i od np. przed ostatniego do końca
+            result_image[:, -padding_width:] = border_value
+
+        return result_image
+
+    # Obramówka stała
+    elif border_type == cv2.BORDER_CONSTANT:
+        # Powiększam zdjęcie o margines jasności podanej przez użytkownika
+        padded_image = cv2.copyMakeBorder(
+            image,
+            top=padding_height, bottom=padding_height, left=padding_width, right=padding_width,
+            borderType=cv2.BORDER_CONSTANT,
+            value=border_value
+        )
+        # Wykonuję operacje na powiększonym zdjęciu
+        result_padded_image = cv2.filter2D(src=padded_image, ddepth=-1, kernel=kernel, borderType=border_type)
+
+        # Zwracam kopie wyciętego obrazka. Wyciętego dlatego, aby zachował oryginalny rozmiar.
+        return result_padded_image[padding_height: -padding_height, padding_width:-padding_width].copy()
+
+    # W wypadku BORDER_REFLECT po prostu przekazuję to do metody opencv
+    else:
+        return cv2.filter2D(src=image, ddepth=-1, kernel=kernel, borderType=border_type)
+
+
+def apply_laplacian_sharpening(image: np.ndarray, kernel: np.ndarray, border_type: int, border_value: int):
+    """
+    Funkcja nagkładająca wykonująca operację na macierzy za pomocą przekazanej macierzy
+
+    Algorytm:
+    Obraz wyostrzony = obraz oryginalny + wykryte krawędzie
+
+    :param image: przekazane zdjęcie
+    :param kernel: wybrana macierz do wykonania operacji
+    :param border_type: typ uzupełnienia krawędzi zdjęcia
+    :param border_value określa, z jaką wartością ma być wypełniona ramka lub jaką wartość marginesów ma brać
+    :return: zwraca nowe zdjęcie
+    """
+    # Konwersja podobnie jak w funkcjach powyżej, aby nie tracić wartości ujemnych przy filtracji
+    image_float = image.astype(np.float32)
+
+    # Sprawdzenie, jaka jest wartość środkowa
+    center_value = kernel[1, 1]
+
+    padding_height = kernel.shape[0] // 2  # dzielenie całkowite przez 2
+    padding_width = kernel.shape[1] // 2  # dzielenie całkowite przez 2
+
+    # Wypełnienie ramki stałą wartością n.
+    # 9999 dla BORDER_OVERWRITE
+    if border_type == 9999:
+
+        # Obliczenie krawędzi
+        # cv2.CV_32F to jest oznaczenie typu pamięci, jakie ma wykorzystać opencv
+        # Wyżej przekonwertowałem do float32 więc tutaj muszę też użyć float32
+        edges = cv2.filter2D(image_float, cv2.CV_32F, kernel, borderType=cv2.BORDER_REPLICATE)
+
+        # Jeżeli środek macierzy jest na minusie -4 to odejmuję krawędzie,
+        # ponieważ edges zawiera krawędzie jako wartości
+        # ujemne, więc żeby je dodać do obrazu należy odjąć
+        if center_value < 0:
+            result_image = image_float - edges
+        # Na odwró†
+        else:
+            result_image = image_float + edges
+
+        # Ucinam mniejsze od zera i większe od 255
+        result_image_clipped = np.clip(result_image, 0, 255).astype(np.uint8)
+
+        # Nadpisanie ramki
+        if padding_height > 0:
+            result_image_clipped[:padding_height, :] = border_value
+            result_image_clipped[-padding_height:, :] = border_value
+        if padding_width > 0:
+            result_image_clipped[:, :padding_width] = border_value
+            result_image_clipped[:, -padding_width:] = border_value
+
+        return result_image_clipped
+
+    elif border_type == cv2.BORDER_CONSTANT:
+        padded_image = cv2.copyMakeBorder(
+            image,
+            top=padding_height, bottom=padding_height, left=padding_width, right=padding_width,
+            borderType=cv2.BORDER_CONSTANT,
+            value=border_value
+        )
+        edges = cv2.filter2D(padded_image, cv2.CV_32F, kernel, borderType=border_type)
+
+        if center_value < 0:
+            result_padded_image = padded_image.astype(np.float32) - edges
+        # Na odwró†
+        else:
+            result_padded_image = padded_image.astype(np.float32) + edges
+
+        result_clipped = np.clip(result_padded_image, 0, 255).astype(np.uint8)
+
+        return result_clipped[padding_height: -padding_height, padding_width:-padding_width].copy()
+
+    else:
+        edges = cv2.filter2D(image_float, cv2.CV_32F, kernel, borderType=border_type)
+        if center_value < 0:
+            result_padded_image = image_float - edges
+        # Na odwró†
+        else:
+            result_padded_image = image_float + edges
+        return np.clip(result_padded_image, 0, 255).astype(np.uint8)
