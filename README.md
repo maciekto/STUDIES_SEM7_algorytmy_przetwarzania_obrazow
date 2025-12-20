@@ -90,9 +90,9 @@ If OpenCV fails to install, check Python version first
 Optional (developers): build executable\
 ```bash
 pip install pyinstaller
-python3 -m PyInstaller --onedir --windowed --clean --noconfirm --paths=app --name AlgorytmyPrzetObrazAPK app/main.py
+python3 -m PyInstaller --onedir --windowed --clean --noconfirm --paths=app --name APO_Maciej_Tomaszewski app/main.py
 
 # OR
-pyinstaller --onedir --windowed --clean --noconfirm --paths=app --name AlgorytmyPrzetObrazAPK app/main.py
+pyinstaller --onedir --windowed --clean --noconfirm --paths=app --name APO_Maciej_Tomaszewski app/main.py
 
 ```

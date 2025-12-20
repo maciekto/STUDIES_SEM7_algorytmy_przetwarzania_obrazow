@@ -14,5 +14,7 @@ __pycache__/
 
 # Build
 AlgorytmyPrzetObrazAPK.spec
+APO_Maciej_Tomaszewski.spec
+
 build/
 dist/
