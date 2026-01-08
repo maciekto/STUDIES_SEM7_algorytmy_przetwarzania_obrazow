@@ -950,3 +950,35 @@ def apply_canny_edge_detection(image: np.ndarray, threshold1: int, threshold2: i
     :return: Obraz binarny z krawędziami
     """
     return cv2.Canny(image, threshold1, threshold2)
+
+
+# Dla Lab 3 - zadanie 1
+def histogram_streching_lut(p1: int, p2: int, q3: int, q4: int):
+    """
+    Generuje tablice przekształceń (lut) dla nowego histogramu
+    :param p1: "odcięcie" dolne
+    :param p2: "odcięcie" górne
+    :param q3: wynik wyjściowy najmniejszy
+    :param q4: wynik wyjściowy największy
+    :return: tablica lut w postacji tablicy NumPy
+    """
+
+    lut = np.zeros(256, dtype=np.uint8)
+
+    # Jeżeli takie same to zwracamy niezmienioną tablicę
+    if p1 == p2:
+        return np.arange(256, dtype=np.uint8)
+
+    # proporcje wyjścia do wejścia
+    proportion = (q4 - q3) / (p2 - p1)
+
+    for i in range(256):
+        # Wzór (pixel o jasności i-dolny próg) - oblicza różnicę jasności pixela od początku zakresu.
+        # Jeżeli jest poniżej zera, to wynik będzie 0 po normalizacji i o to chodzi.
+        # Jeżeli wynik będzie duży i po przemnożeniu przez scale będzie większy od 255, to po normalizacji będzie 255.
+        # Dla innych przypadków pixele dostaną nowe rozciągnięte wartości
+        # q3 - jest uwzględniane, gdy początek wynikowy chcemy mieć większy niż domyślne 0
+        value = (i - p1) * proportion + q3
+        lut[i] = np.clip(value, 0, 255)
+
+    return lut

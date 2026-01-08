@@ -1,7 +1,8 @@
 # image_window.py
 import numpy as np
 from PyQt6.QtGui import QResizeEvent, QCloseEvent
-from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInputDialog, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInputDialog, QMessageBox, QDialog, \
+    QVBoxLayout, QFormLayout, QSpinBox, QDialogButtonBox
 from PyQt6.QtCore import Qt, QSize
 import cv2
 
@@ -12,7 +13,8 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     linear_saturation_streching_histogram, histogram_equalization, point_negation, point_posterize, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
-    apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection
+    apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
+    histogram_streching_lut
 
 
 class ImageWindow(QMainWindow):
@@ -166,6 +168,15 @@ class ImageWindow(QMainWindow):
 
         ui_canny_edge_detection = lab2_zad4_menu.addAction("Wykrywanie krawędzi metodą Canny'ego")
         ui_canny_edge_detection.triggered.connect(lambda: self.on_canny_edge_detection_triggered())
+
+        # Menu dla lab-ów 3
+        lab3_menu = menu_bar.addMenu("Lab 3")
+
+        # Lab 2 - Zadanie 1
+        lab3_zad1_menu = lab3_menu.addMenu("Zad 1")
+
+        ui_histogram_linear_streching = lab3_zad1_menu.addAction("Rozciąganie liniowe histogramu")
+        ui_histogram_linear_streching.triggered.connect(lambda: self.on_histogram_linear_streching())
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -500,7 +511,6 @@ class ImageWindow(QMainWindow):
                                        "monochromatyczny", str(e))
 
     # Zadanie 2
-
     def on_logical_operation_triggered(self):
 
         # Wybranie operacji logiczne przez użytkownika
@@ -751,3 +761,68 @@ class ImageWindow(QMainWindow):
             self.show_image()
         except ValueError as e:
             QMessageBox.critical(self, "Błąd", str(e))
+
+    # ------------------------------
+    # MENU LAB3 OPTIONS METHODS
+    # ------------------------------
+
+    # Zadanie 1
+    def on_histogram_linear_streching(self):
+
+        # Utworzenie okna i layoutu, w którym będą inputy do wypełnienia
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Podanie parametrów rozciągania histogramu")
+
+        layout = QVBoxLayout(dialog)
+        form_layout = QFormLayout()
+
+        # p1 - "odcięcie" dolne
+        p1_input = QSpinBox()
+        p1_input.setRange(0, 255)
+        p1_input.setValue(50)
+        form_layout.addRow("p1", p1_input)
+
+        # p2 - "odcięcie" górne
+        p2_input = QSpinBox()
+        p2_input.setRange(0, 255)
+        p2_input.setValue(220)
+        form_layout.addRow("p2", p2_input)
+
+        # q3 - wynik wyjściowy najmniejszy
+        q3_input = QSpinBox()
+        q3_input.setRange(0, 255)
+        q3_input.setValue(0)
+        form_layout.addRow("q3", q3_input)
+
+        # q4 - wynik wyjściowy największy
+        q4_input = QSpinBox()
+        q4_input.setRange(0, 255)
+        q4_input.setValue(255)
+        form_layout.addRow("q4", q4_input)
+
+        layout.addLayout(form_layout)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec():
+            p1 = p1_input.value()
+            p2 = p2_input.value()
+            q3 = q3_input.value()
+            q4 = q4_input.value()
+
+            if p1 >= p2:
+                QMessageBox.warning(self, "Błąd", "Wartość p1 musi być mniejsza od p2")
+                return
+
+            try:
+                self.cv_image = cv2.LUT(self.cv_image ,histogram_streching_lut(p1, p2, q3, q4))
+
+                self.pixmap = convert_cv_to_pixmap(self.cv_image)
+
+                self.show_image()
+
+            except Exception as e:
+                QMessageBox.critical(self, "Błąd", str(e))
