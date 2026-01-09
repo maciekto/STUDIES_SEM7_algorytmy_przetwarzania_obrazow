@@ -1046,3 +1046,55 @@ def morphology_operation(image: np.ndarray, operation_type: int, shape: int) -> 
 
     # Operacja znalezienia kształu
     return cv2.morphologyEx(image, operation_type, matrix)
+
+
+# Lab 3 - zadanie 4
+def morphology_skeletonize(image: np.ndarray) -> np.ndarray:
+    """
+    Wykonuje szkieletyzację obrazu, dopóki z obiektów nie powstanie 1 linnia.
+    :param image: Przekazane zdjęcie
+    :return: nowe zdjęcie
+    """
+
+    # Jeżeli obraz nie jest binarny, to wykonuje konwersję
+    # np.unique, zwraca ilość unikalnych pixeli. Jeżeli jest w odcieniach szarości powinno być mniejsze od 2
+    if len(np.unique(image)) > 2:
+        threshold_to_ignore, img = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    else:
+        img = image.copy()
+
+    # Zrobinie pustej tablicy na wynik
+    skeleton = np.zeros(img.shape, np.uint8)
+
+    # matrix do wykonywania erozji i dylatacji w pętli
+    matrix = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+
+    # Algorytm:
+    # 1. Erozja: aby pozbyć się warstwy 1px dookoła obiektu
+    # 2. Dylatacja: próbowa odtworzenia obiektu
+    # 3. Różnica między oryginałem a operacją otwarcia to fragment szkieletu, który
+    # 4. Przekazywany jest do skeleto
+    while True:
+        # 1
+        eroded = cv2.erode(img, matrix)
+
+        # 2
+        open_operation = cv2.dilate(eroded, matrix)
+
+        # 3 - jak znajdzie różnicę to będzie to oznaczało, że to już jest najmniejszy obiekt, bo operacja
+        # dylatacji nie wpłyneła na jej wielkość. Stało się dlatego, że poprzednia operacja erozji zwróciła czarny
+        # wynik
+        difference = cv2.subtract(img, open_operation)
+
+        # 4 - bitwise jest po to że dodaje wynik difference do skeletonu
+        skeleton = cv2.bitwise_or(skeleton, difference)
+
+        # Przekopiowanie do następnej iteracji
+        img = eroded.copy()
+
+        # Jeżeli obraz jest czarny zatrzymuję pętlę
+        if cv2.countNonZero(img) == 0:
+            break
+
+    return skeleton
+

@@ -14,7 +14,8 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
-    histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, morphology_operation
+    histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, \
+    morphology_operation, morphology_skeletonize
 
 
 class ImageWindow(QMainWindow):
@@ -194,6 +195,12 @@ class ImageWindow(QMainWindow):
         lab3_zad3_menu = lab3_menu.addMenu("Zad 3")
         ui_morphology = lab3_zad3_menu.addAction("Operacje morfologii matematycznej")
         ui_morphology.triggered.connect(self.on_morphology_triggered)
+
+        lab3_zad4_menu = lab3_menu.addMenu("Zad 4")
+        ui_morphology_skeletonize = lab3_zad4_menu.addAction("Szkieletowanie")
+        ui_morphology_skeletonize.triggered.connect(self.on_morphology_skeletonize_triggered)
+
+
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -881,7 +888,7 @@ class ImageWindow(QMainWindow):
             self.show_image()
 
         except Exception as e:
-            QMessageBox(self, "Bład", str(e))
+            QMessageBox.critical(self, "Bład", str(e))
 
     def on_segmentation_adaptive_triggered(self):
         if not self.ensure_grayscale():
@@ -914,7 +921,7 @@ class ImageWindow(QMainWindow):
             self.show_image()
 
         except Exception as e:
-            QMessageBox(self, "Bład", str(e))
+            QMessageBox.critical(self, "Bład", str(e))
 
     # Zadanie 3
     def on_morphology_triggered(self):
@@ -962,4 +969,26 @@ class ImageWindow(QMainWindow):
             self.show_image()
 
         except Exception as e:
-            QMessageBox(self, "Bład", str(e))
+            QMessageBox.critical(self, "Bład", str(e))
+
+    # Zdanie 4
+    def on_morphology_skeletonize_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        ok = QMessageBox.warning(self,
+                                 "Ostrzeżenie",
+                                 "Jeżeli obraz nie jest binarny zostanie zastosowana konwersja OTSU\n\n"
+                                 "Czy chcesz kontynuwać?",
+                                 QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+
+        if ok == QMessageBox.StandardButton.Cancel:
+            return
+
+        try:
+            self.cv_image = morphology_skeletonize(self.cv_image)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Bład", str(e))
