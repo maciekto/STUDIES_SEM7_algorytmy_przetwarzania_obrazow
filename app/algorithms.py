@@ -1029,3 +1029,20 @@ def segmentation_adaptive(image: np.ndarray, block_size: int, c_const: int, meth
                                  thresholdType=cv2.THRESH_BINARY,
                                  blockSize=block_size,
                                  C=c_const)
+
+
+# Dla Lab 3 - zadanie 3
+def morphology_operation(image: np.ndarray, operation_type: int, shape: int) -> np.ndarray:
+    """
+    Wykonuje operację morfologiczną dla elementu.
+    :param image: zdjęcie
+    :param operation_type: wybrany typ operacji
+    :param shape: wybrany kształt
+    :return: nowe zdjęcie jako np.ndarray
+    """
+
+    # Wybrana tablica 3x3 jaka ma być nałożona na każdy pixel
+    matrix = cv2.getStructuringElement(shape, (3, 3))
+
+    # Operacja znalezienia kształu
+    return cv2.morphologyEx(image, operation_type, matrix)

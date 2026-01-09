@@ -14,7 +14,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
-    histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive
+    histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, morphology_operation
 
 
 class ImageWindow(QMainWindow):
@@ -172,13 +172,13 @@ class ImageWindow(QMainWindow):
         # Menu dla lab-ów 3
         lab3_menu = menu_bar.addMenu("Lab 3")
 
-        # Lab 2 - Zadanie 1
+        # Lab 3 - Zadanie 1
         lab3_zad1_menu = lab3_menu.addMenu("Zad 1")
 
         ui_histogram_linear_streching = lab3_zad1_menu.addAction("Rozciąganie liniowe histogramu")
         ui_histogram_linear_streching.triggered.connect(lambda: self.on_histogram_linear_streching_triggered())
 
-        # Lab 2 - Zadanie 2
+        # Lab 3 - Zadanie 2
         lab3_zad2_menu = lab3_menu.addMenu("Zad 2")
 
         ui_segmentation_two_thresholds = lab3_zad2_menu.addAction("Segmentacja z dwoma progami")
@@ -189,6 +189,11 @@ class ImageWindow(QMainWindow):
 
         ui_segmentation_adaptive = lab3_zad2_menu.addAction("Segmenatacja adaptacyjna (per pixel)")
         ui_segmentation_adaptive.triggered.connect(self.on_segmentation_adaptive_triggered)
+
+        # Lab 3 - Zadanie 3
+        lab3_zad3_menu = lab3_menu.addMenu("Zad 3")
+        ui_morphology = lab3_zad3_menu.addAction("Operacje morfologii matematycznej")
+        ui_morphology.triggered.connect(self.on_morphology_triggered)
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -905,6 +910,54 @@ class ImageWindow(QMainWindow):
 
         try:
             self.cv_image = segmentation_adaptive(self.cv_image, matrix_size, c_const, selected_method)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+        except Exception as e:
+            QMessageBox(self, "Bład", str(e))
+
+    # Zadanie 3
+    def on_morphology_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        # Do wyboru przez użytkownika
+        operation_labels = [
+            "Erozja (Zmniejszanie)",
+            "Dylatacja (Pogrubianie)",
+            "Otwarcie (Erozja->Dylatacja)",
+            "Zamknięcie (Dylatacja->Erozja)"
+        ]
+        # Na potrzebę przekazania argumentu do funkcji open cv
+        operation_map = {
+            "Erozja (Zmniejszanie)": cv2.MORPH_ERODE,
+            "Dylatacja (Pogrubianie)": cv2.MORPH_DILATE,
+            "Otwarcie (Erozja->Dylatacja)": cv2.MORPH_OPEN,
+            "Zamknięcie (Dylatacja->Erozja)": cv2.MORPH_CLOSE
+        }
+        selected_operation, ok = QInputDialog.getItem(self, "Morfologia", "Wybierz operację: ", operation_labels, 0, False)
+
+        if not ok:
+            return
+
+        selected_operation_for_opencv = operation_map[selected_operation]
+
+        shapes_labels = [
+            "Prostokąt",
+            "Krzyż"
+        ]
+        shapes_map = {
+            "Prostokąt": cv2.MORPH_RECT,
+            "Krzyż": cv2.MORPH_CROSS
+        }
+        selected_shape, ok2 = QInputDialog.getItem(self, "Wybranie kształtu", "Wybierz kształt", shapes_labels, 0, False)
+        if not ok2:
+            return
+
+        selected_shape_for_opencv = shapes_map[selected_shape]
+
+        try:
+            self.cv_image = morphology_operation(self.cv_image, selected_operation_for_opencv, selected_shape_for_opencv)
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
 
