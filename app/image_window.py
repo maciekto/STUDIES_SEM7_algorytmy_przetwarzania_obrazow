@@ -14,7 +14,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     point_binary_threshold, point_keep_gray_threshold, multi_image_addition, scalar_operation, absolute_difference, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
-    histogram_streching_lut
+    histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive
 
 
 class ImageWindow(QMainWindow):
@@ -176,7 +176,19 @@ class ImageWindow(QMainWindow):
         lab3_zad1_menu = lab3_menu.addMenu("Zad 1")
 
         ui_histogram_linear_streching = lab3_zad1_menu.addAction("Rozciąganie liniowe histogramu")
-        ui_histogram_linear_streching.triggered.connect(lambda: self.on_histogram_linear_streching())
+        ui_histogram_linear_streching.triggered.connect(lambda: self.on_histogram_linear_streching_triggered())
+
+        # Lab 2 - Zadanie 2
+        lab3_zad2_menu = lab3_menu.addMenu("Zad 2")
+
+        ui_segmentation_two_thresholds = lab3_zad2_menu.addAction("Segmentacja z dwoma progami")
+        ui_segmentation_two_thresholds.triggered.connect(self.on_segmentation_two_thresholds_triggered)
+
+        ui_segmentation_otsu = lab3_zad2_menu.addAction("Segmentacja metodą Otsu")
+        ui_segmentation_otsu.triggered.connect(self.on_segmentation_otsu_triggered)
+
+        ui_segmentation_adaptive = lab3_zad2_menu.addAction("Segmenatacja adaptacyjna (per pixel)")
+        ui_segmentation_adaptive.triggered.connect(self.on_segmentation_adaptive_triggered)
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -767,7 +779,7 @@ class ImageWindow(QMainWindow):
     # ------------------------------
 
     # Zadanie 1
-    def on_histogram_linear_streching(self):
+    def on_histogram_linear_streching_triggered(self):
 
         # Utworzenie okna i layoutu, w którym będą inputy do wypełnienia
         dialog = QDialog(self)
@@ -818,7 +830,7 @@ class ImageWindow(QMainWindow):
                 return
 
             try:
-                self.cv_image = cv2.LUT(self.cv_image ,histogram_streching_lut(p1, p2, q3, q4))
+                self.cv_image = cv2.LUT(self.cv_image, histogram_streching_lut(p1, p2, q3, q4))
 
                 self.pixmap = convert_cv_to_pixmap(self.cv_image)
 
@@ -826,3 +838,75 @@ class ImageWindow(QMainWindow):
 
             except Exception as e:
                 QMessageBox.critical(self, "Błąd", str(e))
+
+    # Zadanie 2
+    def on_segmentation_two_thresholds_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        threshold1, ok1 = QInputDialog.getInt(self, "Zakres", "Podaj próg dolny")
+        if not ok1:
+            return
+
+        threshold2, ok2 = QInputDialog.getInt(self, "Zakres", "Podaj próg górny")
+        if not ok2:
+            return
+
+        if threshold1 >= threshold2:
+            QMessageBox.warning(self, "Błąd", "Próg dolny musi być mniejszy od górnego")
+            return
+
+        try:
+            self.cv_image = segmentation_two_thresholds(self.cv_image, threshold1, threshold2)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    def on_segmentation_otsu_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        try:
+            self.cv_image, threshold = segmentation_otsu(self.cv_image)
+
+            QMessageBox.information(self, "Otsu", f"Algorytm wyliczył optymalny próg: {threshold}")
+
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+        except Exception as e:
+            QMessageBox(self, "Bład", str(e))
+
+    def on_segmentation_adaptive_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        methods = ["Mean (Średnia)", "Gaussian (Ważona)"]
+        method_choice, ok = QInputDialog.getItem(self, "Metoda", "Wybierz metodę adaptacji:", methods, 0, False)
+        if not ok:
+            return
+
+        selected_method = 'mean' if "Mean" in method_choice else 'gaussian'
+
+        matrix_sizes = ["3", "5", "7", "9", "11", "13", "15", "21", "31"]
+        selected_block_size, ok2 = QInputDialog.getItem(self, "Wielkośc bloku",
+                                                        "Wielkość sąsiedztwa", matrix_sizes, 4, False)
+
+        if not ok2:
+            return
+        matrix_size = int(selected_block_size)
+
+        c_const, ok3 = QInputDialog.getInt(self, "Stała C",
+                                           "Stała C odejmowana od średniej", 2, -100, 100)
+
+        if not ok3:
+            return
+
+        try:
+            self.cv_image = segmentation_adaptive(self.cv_image, matrix_size, c_const, selected_method)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
+
+        except Exception as e:
+            QMessageBox(self, "Bład", str(e))

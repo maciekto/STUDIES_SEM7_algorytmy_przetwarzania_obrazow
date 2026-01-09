@@ -908,10 +908,10 @@ def apply_median_filter(image: np.ndarray, kernel_size: int, border_type, border
 
         # Zrobienie obramowania
         if padding > 0:
-            result_image[:padding, :] = border_value    # góra
-            result_image[-padding:, :] = border_value   # dół
-            result_image[:, :padding] = border_value    # lewo
-            result_image[:, -padding:] = border_value   # prawo
+            result_image[:padding, :] = border_value  # góra
+            result_image[-padding:, :] = border_value  # dół
+            result_image[:, :padding] = border_value  # lewo
+            result_image[:, -padding:] = border_value  # prawo
 
         return result_image
 
@@ -982,3 +982,50 @@ def histogram_streching_lut(p1: int, p2: int, q3: int, q4: int):
         lut[i] = np.clip(value, 0, 255)
 
     return lut
+
+
+# Dla Lab 3 - zadanie 2
+def segmentation_two_thresholds(image: np.ndarray, lower: int, upper: int) -> np.ndarray:
+    """
+    Progowanie z dwoma progami: piksele "pomiędzy" stają się białe a pozostałe szare
+    :param image: zdjęcie
+    :param lower: próg dolny
+    :param upper: próg górny
+    :return: zwraca zdjęcie
+    """
+
+    return cv2.inRange(image, lower, upper)
+
+
+def segmentation_otsu(image: np.ndarray):
+    """
+    Progowanie metodą Otsu.
+    Algorytm sam wylicza jak oddzielić tło od obiektu
+    :param image: zdjęcie
+    :return: obraz binarny i wartość progu
+    """
+
+    threshold_value, binary_image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return binary_image, threshold_value
+
+
+def segmentation_adaptive(image: np.ndarray, block_size: int, c_const: int, method_type: str = 'mean'):
+    """
+    Próg liczony lokalnie dla każdego pixela.
+    :param image: Zdjęcie w odcieniach szarości
+    :param block_size: wielkość otoczenia (matrix)
+    :param c_const: stała odejmowana od średniej
+    :param method_type: 'mean' lub 'gaussian' - średnia lub średnia ważona z matrixa
+    :return:
+    """
+    if method_type == 'gaussian':
+        adaptive_method = cv2.ADAPTIVE_THRESH_GAUSSIAN_C
+    else:
+        adaptive_method = cv2.ADAPTIVE_THRESH_MEAN_C
+
+    return cv2.adaptiveThreshold(image,
+                                 maxValue=255,
+                                 adaptiveMethod=adaptive_method,
+                                 thresholdType=cv2.THRESH_BINARY,
+                                 blockSize=block_size,
+                                 C=c_const)
