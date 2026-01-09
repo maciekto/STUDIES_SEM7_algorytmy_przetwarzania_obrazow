@@ -1,4 +1,6 @@
 # image_window.py
+import csv
+
 import numpy as np
 from PyQt6.QtGui import QResizeEvent, QCloseEvent
 from PyQt6.QtWidgets import QMainWindow, QLabel, QScrollArea, QFileDialog, QInputDialog, QMessageBox, QDialog, \
@@ -15,7 +17,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
     histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, \
-    morphology_operation, morphology_skeletonize
+    morphology_operation, morphology_skeletonize, image_binary_features
 
 
 class ImageWindow(QMainWindow):
@@ -199,6 +201,15 @@ class ImageWindow(QMainWindow):
         lab3_zad4_menu = lab3_menu.addMenu("Zad 4")
         ui_morphology_skeletonize = lab3_zad4_menu.addAction("Szkieletowanie")
         ui_morphology_skeletonize.triggered.connect(self.on_morphology_skeletonize_triggered)
+
+        # Menu dla lab-ów 4
+        lab4_menu = menu_bar.addMenu("Lab 4")
+
+        # Lab 4 - Zadanie 1
+        lab4_zad1_menu = lab4_menu.addMenu("Zad 1")
+
+        ui_features = lab4_zad1_menu.addAction("Analiza obiektów")
+        ui_features.triggered.connect(lambda: self.on_features_triggered())
 
 
 
@@ -992,3 +1003,57 @@ class ImageWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Bład", str(e))
+
+    # ------------------------------
+    # MENU LAB4 OPTIONS METHODS
+    # ------------------------------
+
+    def on_features_triggered(self):
+        if not self.ensure_grayscale():
+            return
+
+        # Sprawdzenie czy obraz jest binarny
+        ok = QMessageBox.warning(self,
+                                 "Ostrzeżenie",
+                                 "Jeżeli obraz nie jest binarny zostanie zastosowana konwersja OTSU\n\n"
+                                 "Czy chcesz kontynuwać?",
+                                 QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+
+        if ok == QMessageBox.StandardButton.Cancel:
+            return
+
+        if len(np.unique(self.cv_image)) > 2:
+            threshold_to_ignore, binary_img = cv2.threshold(self.cv_image,
+                                                            0,
+                                                            255,
+                                                            cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        else:
+            binary_img = self.cv_image
+
+        try:
+            features_data = image_binary_features(binary_img)
+
+            if not features_data:
+                QMessageBox.warning(self, "Info", "Nie znaleziono żadnych obiektów na obrazie")
+                return
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Zapisz wyniki",
+                "wyniki_analizy.csv",
+                "CSV Files (*.csv);;Text Files (*.txt)"
+            )
+
+            if file_path:
+                with open(file_path, mode='w', newline='', encoding='utf-8') as csv_file:
+                    # Ustawienie nazw pól
+                    fieldnames = list(features_data[0].keys())
+
+                    writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter=";")
+
+                    writer.writeheader()
+                    writer.writerows(features_data)
+                QMessageBox.information(self, "Sukces", f"Zapisano cechy {len(features_data)} obiektów do pliku")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))

@@ -1098,3 +1098,61 @@ def morphology_skeletonize(image: np.ndarray) -> np.ndarray:
 
     return skeleton
 
+# Lab 4 - zadanie 1
+def image_binary_features(image: np.ndarray) -> list[dict]:
+    """
+    Analizuje obiekty na obrazi binarnym
+    :param image: obraz binarny
+    :return: lista słowników z cechami
+    """
+
+    # Znalezienie konturów obiektów
+    # RETR_EXTERNAL - parametr określający, że brane są tylko kontury z zewnątrz
+    # CHAIN... - oszczędza pamięć
+    contours, what_is_this = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    features_list = []
+
+    for index, contour in enumerate(contours):
+        # Gdy kształ jest bardzo mały, to pomijam, bo to jest szum
+        if cv2.contourArea(contour) < 5:
+            continue
+
+        # Punkt A z zadania - Momenty
+        moments = cv2.moments(contour)
+
+        # Punkt B z zadania - Geometria
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True) # Obwód, True, że kontur jest zamknięty
+
+        # Punkt C z zadania - kształt
+
+        # Aspect ratio
+        x, y, width, height = cv2.boundingRect(contour) # Pobieram prostokąt jaki się 'opiera' na tym kształcie
+        aspect_ratio = float(width) / height if height != 0 else 0 # Wyliczam proporcje
+
+        # Extent: stosunek pola otaczającego (boundingrect) do obiektu
+        rectangle_area = width * height
+        extent = area / rectangle_area if rectangle_area > 0 else 0
+
+        # Solidity: stosunek pola do pola otoczki wypukłej, czyli miara wklęśnięć w obiekcie
+        hull = cv2.convexHull(contour)
+        hull_area = cv2.contourArea(hull)
+        solidity = area / hull_area if hull_area > 0 else 0
+
+        # Equivalent diameter: średnica koła o takim samym polu
+        equivalent_diameter = np.sqrt(4 * area / np.pi)
+
+        features = {
+            "ID": index + 1,
+            "Area": area,
+            "Perimeter": perimeter,
+            "Aspect ratio": aspect_ratio,
+            "Extent": extent,
+            "Solidity": solidity,
+            "Equivalent Diameter": equivalent_diameter
+        }
+        features_list.append(features)
+
+    return features_list
+
