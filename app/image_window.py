@@ -17,7 +17,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
     histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, \
-    morphology_operation, morphology_skeletonize, image_binary_features, detect_lines_hough
+    morphology_operation, morphology_skeletonize, image_binary_features, detect_lines_hough, crop_image
 
 
 class ImageWindow(QMainWindow):
@@ -216,6 +216,11 @@ class ImageWindow(QMainWindow):
 
         ui_hough_lines = lab4_zad2_menu.addAction("Wykrywanie linni Hough")
         ui_hough_lines.triggered.connect(self.on_hough_lines_triggered)
+
+        # Menu dla miniprojektu
+        lab4_menu = menu_bar.addMenu("Miniprojekt - Crop")
+        ui_crop_image = lab4_menu.addAction("Crop zdjęcia")
+        ui_crop_image.triggered.connect(self.on_crop_image_triggered)
 
 
 
@@ -1096,6 +1101,48 @@ class ImageWindow(QMainWindow):
             self.cv_image = detect_lines_hough(self.cv_image, threshold, min_len, max_gap)
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    # ------------------------------
+    # Mini projekt crop
+    # ------------------------------
+
+    # Wywołanie popupu z cropem i wywołanie funkcji z algorithms.py do zwrócenia nowego zdjęcia
+    def on_crop_image_triggered(self):
+        """Uruchamia narzędzie do kadrowania"""
+
+        # Informacja dla usera, bo selectROI działa specyficznie
+        QMessageBox.information(
+            self,
+            "Instrukcja",
+            "Za chwilę otworzy się nowe okno 'Do zaznaczenia obszaru do wycięcia'.\n\n"
+            "1. Zaznacz myszką obszar do wycięcia.\n"
+            "2. Naciśnij SPACJĘ lub ENTER, aby zatwierdzić.\n"
+            "3. Naciśnij 'c', aby anulować."
+        )
+
+        try:
+            # cv2.selectROI(nazwa_okna, obraz)
+            # Funkcja blokuje program, dopóki nie będzie, zatwierdzony wybór
+            # Zwraca krotkę (x, y, w, h)
+            rect = cv2.selectROI("Crop image", self.cv_image, showCrosshair=True, fromCenter=False)
+
+            # Po zatwierdzeniu zamykam okno selectora
+            cv2.destroyWindow("Crop Selector")
+
+            # x,y: lewy górny róg zaznaczenia
+            # width, height: nowa wysokość od punktu x i y
+            x, y, width, height = rect
+
+            # Sprawdzamy, czy cokolwiek zaznaczono (jeśli w=0 lub h=0 to znaczy że anulowano)
+            if width > 0 and height > 0:
+                self.cv_image = crop_image(self.cv_image, x, y, width, height)
+                self.pixmap = convert_cv_to_pixmap(self.cv_image)
+                self.show_image()
+            else:
+                pass  # Anulowano (wciśnięto 'c' lub zaznaczono pusty obszar)
 
         except Exception as e:
             QMessageBox.critical(self, "Błąd", str(e))

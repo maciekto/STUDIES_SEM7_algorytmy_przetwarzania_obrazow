@@ -1196,3 +1196,16 @@ def detect_lines_hough(image: np.ndarray, threshold: int, min_line_length: int, 
 
     return result_image
 
+
+# Miniprojekt - crop zdjęcia
+def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+    """
+    Funkcja wykonująca przycięcie zdjęcia
+    :param image: zdjęcie oryginalne
+    :param x: start x
+    :param y: start y
+    :param width: szerokość
+    :param height: wysokość
+    :return: nowe zdjęcie po crop
+    """
+    return image[y:y+height, x:x+width].copy()
