@@ -17,7 +17,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
     histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, \
-    morphology_operation, morphology_skeletonize, image_binary_features
+    morphology_operation, morphology_skeletonize, image_binary_features, detect_lines_hough
 
 
 class ImageWindow(QMainWindow):
@@ -209,7 +209,13 @@ class ImageWindow(QMainWindow):
         lab4_zad1_menu = lab4_menu.addMenu("Zad 1")
 
         ui_features = lab4_zad1_menu.addAction("Analiza obiektów")
-        ui_features.triggered.connect(lambda: self.on_features_triggered())
+        ui_features.triggered.connect(self.on_features_triggered)
+
+        # Lab 4 - Zadanie 2
+        lab4_zad2_menu = lab4_menu.addMenu("Zad 2")
+
+        ui_hough_lines = lab4_zad2_menu.addAction("Wykrywanie linni Hough")
+        ui_hough_lines.triggered.connect(self.on_hough_lines_triggered)
 
 
 
@@ -1008,6 +1014,7 @@ class ImageWindow(QMainWindow):
     # MENU LAB4 OPTIONS METHODS
     # ------------------------------
 
+    # Zadanie 1
     def on_features_triggered(self):
         if not self.ensure_grayscale():
             return
@@ -1054,6 +1061,41 @@ class ImageWindow(QMainWindow):
                     writer.writeheader()
                     writer.writerows(features_data)
                 QMessageBox.information(self, "Sukces", f"Zapisano cechy {len(features_data)} obiektów do pliku")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    # Zadanie 2
+    def on_hough_lines_triggered(self):
+        """Wykrywanie linii metodą Hougha"""
+
+        # 1. Próg (Threshold) - minimalna liczba głosów, żeby uznać linię
+        # Im mniej, tym więcej śmieci wykryje. Im więcej, tym tylko najwyraźniejsze linie.
+        threshold, ok1 = QInputDialog.getInt(self, "Hough Param 1/3",
+                                             "Próg (Threshold):\n(Ile punktów musi leżeć na linii, by ją uznać?)",
+                                             50, 10, 500)
+        if not ok1:
+            return
+
+        # 2. Minimalna długość linii
+        min_len, ok2 = QInputDialog.getInt(self, "Hough Param 2/3",
+                                           "Min. długość linii (px):\n(Krótsze będą ignorowane)",
+                                           50, 0, 1000)
+        if not ok2:
+            return
+
+        # 3. Maksymalna przerwa w linii (Gap)
+        # Pozwala łączyć przerywane linie w jedną całość
+        max_gap, ok3 = QInputDialog.getInt(self, "Hough Param 3/3",
+                                           "Max. przerwa między odcinkami (px):\n(Dopuszczalna dziura w linii)",
+                                           10, 0, 200)
+        if not ok3:
+            return
+
+        try:
+            self.cv_image = detect_lines_hough(self.cv_image, threshold, min_len, max_gap)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
 
         except Exception as e:
             QMessageBox.critical(self, "Błąd", str(e))

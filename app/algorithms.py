@@ -1156,3 +1156,43 @@ def image_binary_features(image: np.ndarray) -> list[dict]:
 
     return features_list
 
+# Lab 4 - zadanie 2
+
+def detect_lines_hough(image: np.ndarray, threshold: int, min_line_length: int, max_line_gap: int) -> np.ndarray:
+    """
+    Wykrywa linie proste na obrazie za pomocą Probabilistycznej Transformaty Hougha.
+    """
+    # 1. Konwersja na szarość dla wykonania transformacji i kolor dla wyniku
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Kopia obrazu kolorowego do rysowania linii (żeby były np. czerwone)
+        result_image = image.copy()
+    else:
+        gray = image
+        # Konwersja szarego na BGR, żeby narysowane linie były kolorowe
+        result_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    # 2. Wykrycie krawędzi za pomocą metody Cenny-ego
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+    # 3. Transformata Hougha
+    # rho = 1 (dokładność 1 piksel)
+    # theta = np.pi/180 (dokładność 1 stopień)
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1, # dokładność do jednego pixela
+        theta=np.pi/180, # sprawdzenie kątów co jeden stopień
+        threshold=threshold, # ile musi być pixeli w jednej linni aby uznać to za linnię
+        minLineLength=min_line_length, # minimalna długość linni
+        maxLineGap=max_line_gap # maksymalne odstępy w linni
+    )
+
+    # 4. Rysowanie linii
+    if lines is not None:
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            # Ryzuję czerwoną linnię
+            cv2.line(result_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+    return result_image
+
