@@ -64,7 +64,7 @@ class ImageWindow(QMainWindow):
     def create_menus(self):
         menu_bar = self.menuBar()
 
-        file = menu_bar.addMenu("File")  # Zakłada dla zapisania/wczytania/duplikacji obrazu
+        file = menu_bar.addMenu("Plik")  # Zakłada dla zapisania/wczytania/duplikacji obrazu
         file_open = file.addAction("Otwórz")
         file_open.triggered.connect(self.on_file_open_triggered)
 
@@ -74,7 +74,7 @@ class ImageWindow(QMainWindow):
         file_save = file.addAction("Zapisz jako")
         file_save.triggered.connect(self.on_file_save_triggered)
 
-        view = menu_bar.addMenu("View")  # Zakładka dla operacji widoku: dopasowanie do okna, wypełniony, oryginał
+        view = menu_bar.addMenu("Widok")  # Zakładka dla operacji widoku: dopasowanie do okna, wypełniony, oryginał
 
         view_aspect_fit = view.addAction("Wypełnienie z zachowaniem proporcji")
         view_aspect_fit.triggered.connect(self.on_view_aspect_fit_triggered)
@@ -178,7 +178,7 @@ class ImageWindow(QMainWindow):
         # Lab 3 - Zadanie 1
         lab3_zad1_menu = lab3_menu.addMenu("Zad 1")
 
-        ui_histogram_linear_streching = lab3_zad1_menu.addAction("Rozciąganie liniowe histogramu")
+        ui_histogram_linear_streching = lab3_zad1_menu.addAction("Rozciąganie histogramu")
         ui_histogram_linear_streching.triggered.connect(lambda: self.on_histogram_linear_streching_triggered())
 
         # Lab 3 - Zadanie 2
