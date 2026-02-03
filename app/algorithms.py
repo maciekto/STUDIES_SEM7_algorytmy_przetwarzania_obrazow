@@ -1098,6 +1098,7 @@ def morphology_skeletonize(image: np.ndarray) -> np.ndarray:
 
     return skeleton
 
+
 # Lab 4 - zadanie 1
 def image_binary_features(image: np.ndarray) -> list[dict]:
     """
@@ -1123,13 +1124,13 @@ def image_binary_features(image: np.ndarray) -> list[dict]:
 
         # Punkt B z zadania - Geometria
         area = cv2.contourArea(contour)
-        perimeter = cv2.arcLength(contour, True) # Obwód, True, że kontur jest zamknięty
+        perimeter = cv2.arcLength(contour, True)  # Obwód, True, że kontur jest zamknięty
 
         # Punkt C z zadania - kształt
 
         # Aspect ratio
-        x, y, width, height = cv2.boundingRect(contour) # Pobieram prostokąt jaki się 'opiera' na tym kształcie
-        aspect_ratio = float(width) / height if height != 0 else 0 # Wyliczam proporcje
+        x, y, width, height = cv2.boundingRect(contour)  # Pobieram prostokąt jaki się 'opiera' na tym kształcie
+        aspect_ratio = float(width) / height if height != 0 else 0  # Wyliczam proporcje
 
         # Extent: stosunek pola otaczającego (boundingrect) do obiektu
         rectangle_area = width * height
@@ -1156,6 +1157,7 @@ def image_binary_features(image: np.ndarray) -> list[dict]:
 
     return features_list
 
+
 # Lab 4 - zadanie 2
 
 def detect_lines_hough(image: np.ndarray, threshold: int, min_line_length: int, max_line_gap: int) -> np.ndarray:
@@ -1180,11 +1182,11 @@ def detect_lines_hough(image: np.ndarray, threshold: int, min_line_length: int, 
     # theta = np.pi/180 (dokładność 1 stopień)
     lines = cv2.HoughLinesP(
         edges,
-        rho=1, # dokładność do jednego pixela
-        theta=np.pi/180, # sprawdzenie kątów co jeden stopień
-        threshold=threshold, # ile musi być pixeli w jednej linni aby uznać to za linnię
-        minLineLength=min_line_length, # minimalna długość linni
-        maxLineGap=max_line_gap # maksymalne odstępy w linni
+        rho=1,  # dokładność do jednego pixela
+        theta=np.pi / 180,  # sprawdzenie kątów co jeden stopień
+        threshold=threshold,  # ile musi być pixeli w jednej linni aby uznać to za linnię
+        minLineLength=min_line_length,  # minimalna długość linni
+        maxLineGap=max_line_gap  # maksymalne odstępy w linni
     )
 
     # 4. Rysowanie linii
@@ -1198,14 +1200,32 @@ def detect_lines_hough(image: np.ndarray, threshold: int, min_line_length: int, 
 
 
 # Miniprojekt - crop zdjęcia
-def crop_image(image: np.ndarray, x: int, y: int, width: int, height: int) -> np.ndarray:
+def crop_polygon(image, points, tighten=True):
     """
-    Funkcja wykonująca przycięcie zdjęcia
-    :param image: zdjęcie oryginalne
-    :param x: start x
-    :param y: start y
-    :param width: szerokość
-    :param height: wysokość
-    :return: nowe zdjęcie po crop
+    Wycina zaznaczony obszar czworokąta na obrazie
+    Ustawia czarne tło poza przycięciem
+    :param image: image to crop
+    :param points: zaznaczone punkty
+    :param tighten: Czy przycinać do bouding box powstałego czworokąta
+    :return: nowe zdjęcie
     """
-    return image[y:y+height, x:x+width].copy()
+
+    height, width = image.shape[:2]
+    points = np.array(points, dtype=np.int32)  # konwersja dla fillPoly
+
+    mask = np.zeros((height, width), dtype=np.uint8)  # tworzy czarny obraz
+    cv2.fillPoly(mask, [points], 255)  # wypełnia wielokąt kolorem białym na czarnym obrazie
+
+    # Zastosowanie skonstruowanej maski
+    final_image = np.zeros_like(image)  # utworzenie obrazu finalnego tej samej wielkości co wyjściowy
+
+    # do finalnego obrazu kopiuję pixele z przekazanego obrazu tylko tam, gdzie maska == 255
+    final_image[mask == 255] = image[mask == 255]
+
+    if not tighten:
+        return final_image
+
+    x, y, bouding_width, bouding_height = cv2.boundingRect(points)
+    return final_image[y:y + bouding_height, x:x + bouding_width].copy()
+
+

@@ -17,7 +17,7 @@ from algorithms import generate_lut_histogram, linear_streching_histogram, \
     logical_operation, convert_to_binary_mask, convert_to_8bit_mask, KERNELS, \
     apply_linear_filter, apply_laplacian_sharpening, apply_median_filter, apply_canny_edge_detection, \
     histogram_streching_lut, segmentation_two_thresholds, segmentation_otsu, segmentation_adaptive, \
-    morphology_operation, morphology_skeletonize, image_binary_features, detect_lines_hough, crop_image
+    morphology_operation, morphology_skeletonize, image_binary_features, detect_lines_hough, crop_polygon
 
 
 class ImageWindow(QMainWindow):
@@ -51,6 +51,9 @@ class ImageWindow(QMainWindow):
 
             # Dopasowanie rozmiaru okna do zdjęcia z marginesami 20 px, maksymalna wielkość okna to 800x600px
             self.resize(min(self.pixmap.width() + 20, 800), min(self.pixmap.height() + 20, 600))
+
+            if self.view_mode == "aspect_fit":
+                self.view_aspect_fit_resize_event()
 
     def closeEvent(self, event: QCloseEvent):
         # Funkcja dla main_app do usuwania okna z listy
@@ -221,8 +224,6 @@ class ImageWindow(QMainWindow):
         lab4_menu = menu_bar.addMenu("Miniprojekt - Crop")
         ui_crop_image = lab4_menu.addAction("Crop zdjęcia")
         ui_crop_image.triggered.connect(self.on_crop_image_triggered)
-
-
 
     # ------------------------------
     # MENU FILE OPTIONS METHODS
@@ -964,7 +965,8 @@ class ImageWindow(QMainWindow):
             "Otwarcie (Erozja->Dylatacja)": cv2.MORPH_OPEN,
             "Zamknięcie (Dylatacja->Erozja)": cv2.MORPH_CLOSE
         }
-        selected_operation, ok = QInputDialog.getItem(self, "Morfologia", "Wybierz operację: ", operation_labels, 0, False)
+        selected_operation, ok = QInputDialog.getItem(self, "Morfologia", "Wybierz operację: ", operation_labels, 0,
+                                                      False)
 
         if not ok:
             return
@@ -979,14 +981,16 @@ class ImageWindow(QMainWindow):
             "Prostokąt": cv2.MORPH_RECT,
             "Krzyż": cv2.MORPH_CROSS
         }
-        selected_shape, ok2 = QInputDialog.getItem(self, "Wybranie kształtu", "Wybierz kształt", shapes_labels, 0, False)
+        selected_shape, ok2 = QInputDialog.getItem(self, "Wybranie kształtu", "Wybierz kształt", shapes_labels, 0,
+                                                   False)
         if not ok2:
             return
 
         selected_shape_for_opencv = shapes_map[selected_shape]
 
         try:
-            self.cv_image = morphology_operation(self.cv_image, selected_operation_for_opencv, selected_shape_for_opencv)
+            self.cv_image = morphology_operation(self.cv_image, selected_operation_for_opencv,
+                                                 selected_shape_for_opencv)
             self.pixmap = convert_cv_to_pixmap(self.cv_image)
             self.show_image()
 
@@ -1111,38 +1115,95 @@ class ImageWindow(QMainWindow):
 
     # Wywołanie popupu z cropem i wywołanie funkcji z algorithms.py do zwrócenia nowego zdjęcia
     def on_crop_image_triggered(self):
-        """Uruchamia narzędzie do kadrowania"""
+        """
+        Funkcja wykonująca crop na bazie 4 punktów od użytkownika
+        :return:
+        """
 
-        # Informacja dla usera, bo selectROI działa specyficznie
         QMessageBox.information(
             self,
             "Instrukcja",
-            "Za chwilę otworzy się nowe okno 'Do zaznaczenia obszaru do wycięcia'.\n\n"
-            "1. Zaznacz myszką obszar do wycięcia.\n"
-            "2. Naciśnij SPACJĘ lub ENTER, aby zatwierdzić.\n"
-            "3. Naciśnij 'c', aby anulować."
+            "Po otwarciu okan należy wykonać poniższe operacje:\n\n"
+            "1. Zaznacz 4 wierzchołki czworokąta na obrazie\n"
+            "2. Kliknij Enter aby zatwierdzić wybrany zdjęcie i wykonać przycięcie\n"
+            "3. r - aby zaznaczyć jeszcze raz\n"
+            "4. Escape - aby anulować przycianie"
         )
 
+        window_title = "Przyciananie"
+        points = []
+
         try:
-            # cv2.selectROI(nazwa_okna, obraz)
-            # Funkcja blokuje program, dopóki nie będzie, zatwierdzony wybór
-            # Zwraca krotkę (x, y, w, h)
-            rect = cv2.selectROI("Crop image", self.cv_image, showCrosshair=True, fromCenter=False)
+            base_img = self.cv_image.copy()
+            preview = base_img.copy()
 
-            # Po zatwierdzeniu zamykam okno selectora
-            cv2.destroyWindow("Crop Selector")
+            def redraw():
+                nonlocal preview  # Ustawiam żeby brało preview ze scope on_crop_image_triggered
+                preview = base_img.copy()
 
-            # x,y: lewy górny róg zaznaczenia
-            # width, height: nowa wysokość od punktu x i y
-            x, y, width, height = rect
+                # Rysowanie punktów, które zostały kliknięte przez użytkownika
+                for point in points:
+                    cv2.circle(preview, point, 4, (0, 255, 0), -1)
 
-            # Sprawdzamy, czy cokolwiek zaznaczono (jeśli w=0 lub h=0 to znaczy że anulowano)
-            if width > 0 and height > 0:
-                self.cv_image = crop_image(self.cv_image, x, y, width, height)
-                self.pixmap = convert_cv_to_pixmap(self.cv_image)
-                self.show_image()
-            else:
-                pass  # Anulowano (wciśnięto 'c' lub zaznaczono pusty obszar)
+                # Rysowanie linni pomiędzy zaznaczonymi punktami w kolejności od 0 do n.
+                if len(points) >= 2:
+                    for point_index in range(len(points) - 1):
+                        cv2.line(preview, points[point_index], points[point_index + 1], (0, 255, 0), 2)
+
+                # Jeżeli są 4 punkty (tyle ile chcemy, aby użytkownik zaznaczył) to trzeba domknąć czworokąt,
+                # Czyli łączę ostatni punkt z listy punktów z pierwszym
+                if len(points) == 4:
+                    cv2.line(preview, points[3], points[0], (0, 255, 0), 2)
+
+                # Pokazanie obrazu
+                cv2.imshow(window_title, preview)
+
+            # Zczytanie danych kliknięcia, na obrazie
+            def on_mouse(event, x, y, _flags, _userdata):
+                # Sprawdzenie, czy event to kliknięcie lewego przycisku myszy
+                if event == cv2.EVENT_LBUTTONDOWN:
+                    # Dodaję do listy punktów tylko jak długość tablicy jest mniejsza od 4
+                    if len(points) < 4:
+                        points.append((x, y))
+                        redraw()
+
+            # Tworzę crop
+            cv2.namedWindow(window_title, cv2.WINDOW_AUTOSIZE)
+            cv2.imshow(window_title, preview)
+            cv2.setMouseCallback(window_title, on_mouse)
+
+            # Sprawdzanie kliknięcia klawiszy
+            while True:
+                key = cv2.waitKey(20) & 0xFF
+
+                # Anulowanie
+                if key == 27:
+                    cv2.destroyWindow(window_title)
+                    return
+
+                # Resetowanie punktó∑
+                if key == ord('r'):
+                    points.clear()
+                    redraw()
+
+                # Zatwierdzenie
+                if key == 13:
+                    if len(points) == 4:
+                        break
+
+                if cv2.getWindowProperty(window_title, cv2.WND_PROP_VISIBLE) < 1:
+                    return
+
+            cv2.destroyWindow(window_title)
+
+            # Wykonanie cropowania
+            self.cv_image = crop_polygon(self.cv_image, points, tighten=True)
+            self.pixmap = convert_cv_to_pixmap(self.cv_image)
+            self.show_image()
 
         except Exception as e:
+            try:
+                cv2.destroyAllWindows()
+            except:
+                pass
             QMessageBox.critical(self, "Błąd", str(e))
